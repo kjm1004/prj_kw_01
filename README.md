@@ -5,6 +5,7 @@ Win32OpenSSL-3_3_1.exe
   Anaconda3-2024.02-1-Windows-x86_64.exe
 
 <환경 확인>  
+	conda list (패키지 설치 목록 전체 확인)    
 	conda list | findstr anaconda
  
 <가상환경 생성>  
