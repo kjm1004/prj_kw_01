@@ -1,8 +1,9 @@
-from PyQt5.QAxContainer import *
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-import pandas as pd
 import time
+
+import pandas as pd
+from PyQt5.QAxContainer import *
+from PyQt5.QtCore import *
+
 
 class Kiwoom(QAxWidget):
     def __init__(self):
@@ -20,11 +21,11 @@ class Kiwoom(QAxWidget):
     # 슬롯 생성
     def _set_signal_slots(self):
         self.OnEventConnect.connect(self._login_slot)                                               # OnEventConnect(변수) : OnEventConnect 처리결과가 변수로 전달
-        self.OnReceiveTrData.connect(self._on_receive_tr_data)                                      # OnReceiveTrData(변수): Tr 리시버용 구현.  TR의 응답 결과를 변수로 전달
-                                                                                                    # signal, slost
+        self.OnReceiveTrData.connect(
+            self._on_receive_tr_data)  # OnReceiveTrData(변수): 서버로 부터 Tr 반환되면 작동 이벤트
+        # 형식  signal(slost)
                                                                                                     # self.fileSelect.clicked.connect(self.selectFunction)
-                                                                                                    # fileSelect.clicked 이벤트가 발생하면, selectFunction 슬롯을 실행
-                                                                                                    # 형식 : 이벤트(슬롯)
+        # 이벤트(OnReceiveTrData.connect)가 발생하면 슬롯(_on_receive_tr_data) 실행
 
     # 로그인 슬롯 발생
     def _login_slot(self, err_code):
@@ -75,14 +76,15 @@ class Kiwoom(QAxWidget):
                                                                                                     #   self.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)
                                                                                                     #   self.dynamicCall("SetInputValue(QString, QString)", "기준일자", "20210726")
                                                                                                     #   self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")
+        # CommRqData(TR_별명, TR_No, 연속여부, "화면번호4자리")
+
                                                                                                     # TR: 키움서버로 데이터 요구단위
-                                                                                                    # CommRqData(TR_별명, TR_No, 연속여부, "화면번호4자리")
                                                                                                     # DynamicCall( "함수(변수)","변수값" )
                                                                                                     # DynamicCall( "함수(변수1, 변수2, 변수3, 변수4)", "변수1값", "변수2값", "변수3값", "변수4값" )
 
 
     # [ OPT10081 : 주식일봉차트조회요청 ]
-    def get_price_data(self, code):                                                                 #
+    def get_price_data(self, code):
         self.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)                                    # TR(주식일봉차트조회) 시 해당 종목코드
         self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")                                  # TR(주식일봉차트조회) 시 검색 최종 기준일자
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10081_req", "opt10081", 0, "0001")   # 해당 종목의 수정주가 여부 : 1 수정주가
@@ -105,12 +107,11 @@ class Kiwoom(QAxWidget):
 
         return df[::-1]
 
-
-
-
-    def _on_receive_tr_data(self, screen_no, rqname, trcode, record_name, next, unused1, unused2, unused3, unused4):    # TR 조회의 응답 결과를 얻어 오는 함수
+    def _on_receive_tr_data(self, screen_no, rqname, trcode, record_name, next, unused1, unused2,
+                            unused3, unused4):  # TOnReceiveTrData 이벤트가 반환한 값 형식을 구현
         print("[Kiwoom] _on_receive_tr_data is called {} / {} / {}".format(screen_no, rqname, trcode))
-        tr_data_cnt = self.dynamicCall("GetRepeatCnt(QString, QString)", trcode, rqname)
+        tr_data_cnt = self.dynamicCall("GetRepeatCnt(QString, QString)", trcode,
+                                       rqname)  # GetRepeatCnt : 수신된 TR의 Row Count
 
         if next == '2':
             self.has_next_tr_data = True
@@ -118,7 +119,8 @@ class Kiwoom(QAxWidget):
             self.has_next_tr_data = False
 
         if rqname == "opt10081_req":
-            ohlcv = {'date': [], 'open': [], 'high': [], 'low': [], 'close': [], 'volume': []}
+            ohlcv = {'date': [], 'open': [], 'high': [], 'low': [], 'close': [],
+                     'volume': []}  # 딕셔너리
 
             for i in range(tr_data_cnt):
                 date = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "일자")
@@ -127,6 +129,29 @@ class Kiwoom(QAxWidget):
                 low = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "저가")
                 close = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "현재가")
                 volume = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "거래량")
+
+                # 1) Open API 조회 함수 입력값을 설정합니다. (사전처리)
+                # 종목코드 = 전문 조회할 종목코드
+                # SetInputValue("종목코드"	,  "입력값 1");
+                #
+                # 기준일자 = YYYYMMDD (연도4자리, 월 2자리, 일 2자리 형식)
+                # SetInputValue("기준일자"	,  "입력값 2");
+                #
+                # 수정주가구분 = 0 or 1, 수신데이터 1:유상증자, 2:무상증자, 4:배당락, 8:액면분할, 16:액면병합, 32:기업합병, 64:감자, 256:권리락
+                # SetInputValue("수정주가구분"	,  "입력값 3");
+
+                # 2) Open API 조회 함수를 호출해서 전문을 서버로 전송합니다. (TR 요청)
+                #  CommRqData( "RQName"	,  "OPT10081"	,  "0"	,  "화면번호");
+
+                # 3) TR 데이터 수신
+                #  GetCommData(
+                #               BSTR strTrCode,   // TR 이름
+                #               BSTR strRecordName,   // 레코드이름
+                #               long nIndex,      // nIndex번째
+                #               BSTR strItemName) // TR에서 얻어오려는 출력항목이름
+                #
+                #  OnReceiveTRData()이벤트가 발생될때 수신한 데이터를 얻어오는 함수입니다.
+                #  이 함수는 OnReceiveTRData()이벤트가 발생될때 그 안에서 사용해야 합니다.
 
                 ohlcv['date'].append(date.strip())
                 ohlcv['open'].append(int(open))
