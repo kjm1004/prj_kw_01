@@ -25,4 +25,13 @@ Win32OpenSSL-3_3_1.exe
 
 <코드 라인 확대 축소>  
 File -> Settings -> Editor -> General -> Code Folding > always  
+
+<SSL 오류>
+[C:\Users\kimjinman\PycharmProjects\prj_kw_01\venv\Scripts\pip.ini] 생성 후 아래와 같이 작성
+
+[global]
+trusted-host = pypi.python.org
+pypi.org
+files.pythonhosted.org
+
 	
