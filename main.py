@@ -3,8 +3,6 @@ import sys
 
 app = QApplication(sys.argv)
 
-
-app = QApplication(sys.argv)
 kiwoom = Kiwoom()
 
 df = kiwoom.get_price_data("005930")

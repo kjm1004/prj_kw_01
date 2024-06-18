@@ -75,6 +75,11 @@ class Kiwoom(QAxWidget):
                                                                                                     #   self.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)
                                                                                                     #   self.dynamicCall("SetInputValue(QString, QString)", "기준일자", "20210726")
                                                                                                     #   self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")
+                                                                                                    # TR: 키움서버로 데이터 요구단위
+                                                                                                    # CommRqData(TR_별명, TR_No, 연속여부, "화면번호4자리")
+                                                                                                    # DynamicCall( "함수(변수)","변수값" )
+                                                                                                    # DynamicCall( "함수(변수1, 변수2, 변수3, 변수4)", "변수1값", "변수2값", "변수3값", "변수4값" )
+
 
     # [ OPT10081 : 주식일봉차트조회요청 ]
     def get_price_data(self, code):                                                                 #
