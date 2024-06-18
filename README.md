@@ -13,7 +13,8 @@ Win32OpenSSL-3_3_1.exe
 	conda --version  
 	conda info --envs  
 	set CONDA_FORCE_32bit=1  
-	conda create -n system_trading_py38_32 python=3.8  
+	conda create -n py38_32 python=3.8  
+ 	conda activate py38_32  
 
 <가상환경 삭제>  
 	[anaconda Prompt]  
