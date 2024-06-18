@@ -30,8 +30,8 @@ File -> Settings -> Editor -> General -> Code Folding > always
 [C:\Users\kimjinman\PycharmProjects\prj_kw_01\venv\Scripts\pip.ini] 생성 후 아래와 같이 작성
 
 [global]
-trusted-host = pypi.python.org
-pypi.org
-files.pythonhosted.org
+trusted-host = pypi.python.org  
+pypi.org  
+files.pythonhosted.org  
 
 	
