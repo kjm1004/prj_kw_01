@@ -82,7 +82,8 @@ class Kiwoom(QAxWidget):
         self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")                                  # TR(주식일봉차트조회) 시 검색 최종 기준일자
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10081_req", "opt10081", 0, "0001")   # 해당 종목의 수정주가 여부 : 1 수정주가
 
-        self.tr_event_loop.exec_()
+        self.tr_event_loop.exec_()                                                                  #  TR 요청을 보낸 후 응답 대기 상태로 만듬
+                                                                                                    # self.tr_event_loop.exec_() 이후 코드는 TR에 대한 응답이 도착한 후 실행될 수 있습니다
 
         ohlcv = self.tr_data
 
@@ -98,6 +99,9 @@ class Kiwoom(QAxWidget):
         df = pd.DataFrame(ohlcv, columns=['open', 'high', 'low', 'close', 'volume'], index=ohlcv['date'])
 
         return df[::-1]
+
+
+
 
     def _on_receive_tr_data(self, screen_no, rqname, trcode, record_name, next, unused1, unused2, unused3, unused4):    # TR 조회의 응답 결과를 얻어 오는 함수
         print("[Kiwoom] _on_receive_tr_data is called {} / {} / {}".format(screen_no, rqname, trcode))
