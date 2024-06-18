@@ -10,9 +10,7 @@ class Kiwoom(QAxWidget):
         self._make_kiwoom_instance()
         self._set_signal_slots()
         self._comm_connect()
-
         self.account_number = self.get_account_number()
-
         self.tr_event_loop = QEventLoop()                                                           # tr에 사용할 event_loop 변수
 
     # 레지스트리에서 API 정보 가지고 옴
@@ -24,6 +22,13 @@ class Kiwoom(QAxWidget):
         self.OnEventConnect.connect(self._login_slot)                                               # OnEventConnect(변수) : OnEventConnect 처리결과가 변수로 전달
         self.OnReceiveTrData.connect(self._on_receive_tr_data)                                      # OnReceiveTrData(변수): Tr 리시버용 구현.  TR의 응답 결과를 변수로 전달
 
+                                                                                                    # signal, slost
+                                                                                                    # self.fileSelect.clicked.connect(self.selectFunction)
+                                                                                                    # fileSelect.clicked 이벤트가 발생하면, selectFunction 슬롯을 실행
+                                                                                                    # 이벤트(슬롯)
+                                                                                                    #
+                                                                                                    #
+                                                                                                    #
     # 로그인 슬롯 발생
     def _login_slot(self, err_code):
         if err_code == 0:
@@ -41,7 +46,7 @@ class Kiwoom(QAxWidget):
         self.login_event_loop.exec_()
                                                                                                     # QEventLoop(): PyQt5 메소드. 이벤트 루프를 실행
                                                                                                     #   loop = QEventLoop()
-                                                                                                    #   loop.exec_()  # 이벤트 루프 실행
+                                                                                                    #   loop.exec_()  # 이벤트 루프 시작
                                                                                                     #   loop.exit()   # 이벤트 루프 종료
                                                                                                     #   이 메서드는 quit() 또는 exit()가 호출될 때까지 블로킹됩니다.
 
