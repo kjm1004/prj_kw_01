@@ -1,26 +1,16 @@
+from PyQt5.QtWidgets import QApplication
 from api.Kiwoom import *
 import sys
+
+# app = QApplication(sys.argv)          <== 이벤트 루프 : OS의 이벤트, PyQt의 이벤트를 받아들임
+#   window = MyWindow()
+#   window.show()
+# app.exec_()     # main event loop     <== 루프 실행
 
 app = QApplication(sys.argv)
 
 kiwoom = Kiwoom()
-
 df = kiwoom.get_price_data("005930")
 print(df)
-
-# kiwoom = Kiwoom()
-#
-# kospi_code_list = kiwoom.get_code_list_by_market("0")
-#
-# print(kospi_code_list)
-# for code in kospi_code_list:
-#     code_name = kiwoom.get_master_code_name(code)
-#     print(code, code_name)
-#
-# kosdaq_code_list = kiwoom.get_code_list_by_market("10")
-# print(kosdaq_code_list)
-# for code in kosdaq_code_list:
-#     code_name = kiwoom.get_master_code_name(code)
-#    print(code, code_name)
 
 app.exec_()
