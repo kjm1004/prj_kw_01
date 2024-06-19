@@ -12,7 +12,13 @@ class Kiwoom(QAxWidget):
         self._set_signal_slots()                                                                    # Connect 이벤트, TR 리시버 이번트 생성
         self._comm_connect()
         self.account_number = self.get_account_number()
-        self.tr_event_loop = QEventLoop()                                                           # QEventLoop : 루프 객체 생성 후 tr_event_loop로 전달
+
+        self.tr_event_loop = QEventLoop()                                                           # 전 처리(절차적 처리)를 다 마치고, 이벤트 대기 루핑 객체 생성 후 main으로 복귀
+                                                                                                    # QEventLoop : 루프 객체 생성 후 tr_event_loop로 전달
+                                                                                                    # 객체만 생성하고 로핑 실행은 아직 안했음
+                                                                                                    # 루프 객체 생성 후 tr_event_loop로 전달
+                                                                                                    # tr_event_loop.exec_()     <== 루핑 시작
+                                                                                                    # tr_event_loop.exec()      <== 루핑 종료
 
     # 레지스트리에서 API 정보 가지고 옴
     def _make_kiwoom_instance(self):
@@ -28,13 +34,13 @@ class Kiwoom(QAxWidget):
                                                                                                     # 이벤트(OnReceiveTrData.connect)가 발생하면 슬롯(_on_receive_tr_data) 실행
 
     # 로그인 슬롯 발생
-    def _login_slot(self, err_code):                                                                # self.OnEventConnect.connect(self._login_slot)에 의해서 대기 중에 Connect 이벤트가 발생하자 동작
+    def _login_slot(self, err_code):                                                                # self.OnEventConnect.connect(self._login_slot)에 의해서 대기 중에,  Connect 이벤트가 발생하면 _login_slot 동작
         if err_code == 0:
             print("connected")
         else:
             print("not connected")
 
-        self.login_event_loop.exit()                                                                #   _comm_connect에서 생성한  self.login_event_loop.exec_() 대기 루드 이벤트 종료
+        self.login_event_loop.exit()                                                                # _comm_connect에서 생성한  self.login_event_loop.exec_() 대기 루드 이벤트 종료
 
 
     # 로그인 접속
@@ -43,7 +49,7 @@ class Kiwoom(QAxWidget):
         self.login_event_loop = QEventLoop()                                                        # 루핑 이벤트 객체 생성(login_event_loop)
         self.login_event_loop.exec_()                                                               # 로그인 될 때까지 모든 코드 대기
 
-                                                                                                    # loop = QEventLoop()    <== 대기 루프 이벤트 시작. quit() 또는 exit()가 호출될 때까지 모든 코드 중지
+                                                                                                    # loop = QEventLoop()    <== 대기 루프 이벤트 객체 생성 == > 대기 루핑 시작. quit() 또는 exit()가 호출될 때까지 모든 코드 중지
                                                                                                     # loop.exec_()           <== 이벤트 루프 시작
 
                                                                                                     # kiwoom API 함수를 직접 사용할 수 없어서, dynamicCall(API) 형식으로 사용
@@ -55,6 +61,20 @@ class Kiwoom(QAxWidget):
         account_number = account_list.split(';')[0]
         print(account_number)
         return account_number
+                                                                                                    # [LONG GetLoginInfo()]
+                                                                                                    #
+                                                                                                    # 로그인 후 사용할 수 있으며 인자값에 대응하는 정보를 얻을 수 있습니다.
+                                                                                                    #
+                                                                                                    # 인자는 다음값을 사용할 수 있습니다.
+                                                                                                    #
+                                                                                                    # "ACCOUNT_CNT" : 보유계좌 갯수를 반환합니다.
+                                                                                                    # "ACCLIST" 또는 "ACCNO" : 구분자 ';'로 연결된 보유계좌 목록을 반환합니다.
+                                                                                                    # "USER_ID" : 사용자 ID를 반환합니다.
+                                                                                                    # "USER_NAME" : 사용자 이름을 반환합니다.
+                                                                                                    # "GetServerGubun" : 접속서버 구분을 반환합니다.(1 : 모의투자, 나머지 : 실거래 서버)
+                                                                                                    # "KEY_BSECGB" : 키보드 보안 해지여부를 반환합니다.(0 : 정상, 1 : 해지)
+                                                                                                    # "FIREW_SECGB" : 방화벽 설정여부를 반환합니다.(0 : 미설정, 1 : 설정, 2 : 해지)
+
 
     # 전체 종목코드 리스트 출력
     def get_code_list_by_market(self, market_type):
@@ -72,9 +92,14 @@ class Kiwoom(QAxWidget):
     def get_price_data(self, code):
         self.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)
         self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")
-        self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10081_req", "opt10081", 0, "0001")   # 서버로 TR 요청
-        self.tr_event_loop.exec_()                                                                  # 서버 응답올때까지 루프 시작
+        self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10081_req", "opt10081", 0, "0001")   # 서버로 opt10081번 TR 요청
+        self.tr_event_loop.exec_()                                                                  # 서버 응답올 때까지 대기 루프 시작 : def __init__(self):에서 루프 객체 생성
 
+                                                                                                    # OS의 이벤트를 기다림
+                                                                                                    # 위 에서 선언한 OnReceiveTrData에 의해 TR response 발생하면  _on_receive_tr_data 실행
+                                                                                                    # def _set_signal_slots(self):
+                                                                                                    #         self.OnEventConnect.connect(self._login_slot)
+                                                                                                    #         self.OnReceiveTrData.connect(self._on_receive_tr_data)
 
                                                                                                     # TR을 조회하기 전, 미리 각 TR 설명에서 몇가지 속성 지정을 요구함
                                                                                                     # opt10081 TR을 사용하기 위해서는 3가지 속성을 미리 설정해야 함
@@ -91,7 +116,6 @@ class Kiwoom(QAxWidget):
                                                                                                     # 해당 종목의 수정주가 여부 : 1 수정주가
                                                                                                     # TR 요청을 보낸 후 응답 대기 상태로 만듬
                                                                                                     # self.tr_event_loop.exec_() 이후 코드는 TR에 대한 응답이 도착한 후 실행될 수 있습니다
-
         ohlcv = self.tr_data
 
         while self.has_next_tr_data:
@@ -104,7 +128,17 @@ class Kiwoom(QAxWidget):
                 ohlcv[key][-1:] = val
 
         df = pd.DataFrame(ohlcv, columns=['open', 'high', 'low', 'close', 'volume'], index=ohlcv['date'])
-
+                                                                                                    # [pandas DataFrame 형식]
+                                                                                                    # date = ['16.02.29', '16.02.26', '16.02.25', '16.02.24', '16.02.23']
+                                                                                                    # daeshin_day = DataFrame(daeshin, columns=['open', 'high', 'low', 'close'], index=date)
+                                                                                                    # 새롭게 생성된 DataFrame 객체의 출력 값을 확인해 봅시다. 이번에는 그림 13.9와 일자도 일치하는 것을 확인할 수 있습니다.
+                                                                                                    #
+                                                                                                    #            open   high    low  close
+                                                                                                    # 16.02.29  11650  12100  11600  11900
+                                                                                                    # 16.02.26  11100  11800  11050  11600
+                                                                                                    # 16.02.25  11200  11200  10900  11000
+                                                                                                    # 16.02.24  11100  11100  10950  11100
+                                                                                                    # 16.02.23  11000  11150  10900  11050
         return df[::-1]
 
     def _on_receive_tr_data(self, screen_no, rqname, trcode, record_name, next, unused1, unused2,unused3, unused4):  # TOnReceiveTrData 이벤트가 반환한 값 형식을 구현
@@ -117,17 +151,17 @@ class Kiwoom(QAxWidget):
             self.has_next_tr_data = False
 
         if rqname == "opt10081_req":
-            ohlcv = {'date': [], 'open': [], 'high': [], 'low': [], 'close': [],
-                     'volume': []}  # 딕셔너리
+            ohlcv = {'date': [], 'open': [], 'high': [], 'low': [], 'close': [], 'volume': []}      # 임시 처리용 딕셔너리 생성
 
+            # 받아온 TR 값을(멀티행)을 항목별로 임시변수에 저장 => 딕셔너리에 저장(ohlcv) => 객체(self.tr_data)에 저장
             for i in range(tr_data_cnt):
+                # TR로부터 항목별 값을 받아와서 임시 변수에 저장
                 date = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "일자")
                 open = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "시가")
                 high = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "고가")
                 low = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "저가")
                 close = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "현재가")
                 volume = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "거래량")
-
                                                                                                     # 1) Open API 조회 함수 입력값을 설정합니다. (사전처리)
                                                                                                     #     종목코드 = 전문 조회할 종목코드
                                                                                                     #     SetInputValue("종목코드"	,  "입력값 1");
@@ -150,7 +184,7 @@ class Kiwoom(QAxWidget):
                                                                                                     #
                                                                                                     #  OnReceiveTRData()이벤트가 발생될때 수신한 데이터를 얻어오는 함수입니다.
                                                                                                     #  이 함수는 OnReceiveTRData()이벤트가 발생될때 그 안에서 사용해야 합니다.
-
+                # 저장된 임시변수 값을 딕셔너리에 저장
                 ohlcv['date'].append(date.strip())
                 ohlcv['open'].append(int(open))
                 ohlcv['high'].append(int(high))
@@ -158,7 +192,7 @@ class Kiwoom(QAxWidget):
                 ohlcv['close'].append(int(close))
                 ohlcv['volume'].append(int(volume))
 
-            self.tr_data = ohlcv
+            self.tr_data = ohlcv                                                                    # 임시 저장용 딕셔너리를 객체에 저장
 
-        self.tr_event_loop.exit()
+        self.tr_event_loop.exit()                                                                   # 600개 처리 후 루핑종료 => 다시 받아오는 동작 시행
         time.sleep(0.5)
