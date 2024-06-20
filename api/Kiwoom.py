@@ -18,7 +18,8 @@ class Kiwoom(QAxWidget):
                                                                                                     # 객체만 생성하고 로핑 실행은 아직 안했음
                                                                                                     # 루프 객체 생성 후 tr_event_loop로 전달
                                                                                                     # tr_event_loop.exec_()     <== 루핑 시작
-                                                                                                    # tr_event_loop.exec()      <== 루핑 종료
+                                                                                                    # tr_event_loop.exec()      <== 루핑 종료(상태코드 인수 받음)
+                                                                                                    # tr_event_loop.quit()      <== 루핑 종료(상태코드 인수 받지 않음)
 
     # 레지스트리에서 API 정보 가지고 옴
     def _make_kiwoom_instance(self):
@@ -93,7 +94,7 @@ class Kiwoom(QAxWidget):
         self.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)
         self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10081_req", "opt10081", 0, "0001")   # 서버로 opt10081번 TR 요청
-        self.tr_event_loop.exec_()                                                                  # 서버 응답올 때까지 대기 루프 시작 : def __init__(self):에서 루프 객체 생성
+        self.tr_event_loop.exec_()                                                                  # tr_event_loop 루프 시작
 
                                                                                                     # OS의 이벤트를 기다림
                                                                                                     # 위 에서 선언한 OnReceiveTrData에 의해 TR response 발생하면  _on_receive_tr_data 실행
@@ -122,7 +123,7 @@ class Kiwoom(QAxWidget):
             self.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)
             self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")
             self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10081_req", "opt10081", 2, "0001")
-            self.tr_event_loop.exec_()
+            self.tr_event_loop.exec_()                                                              # self.tr_event_loop.exit() 실행 시, 코드 복구 지점
 
             for key, val in self.tr_data.items():
                 ohlcv[key][-1:] = val
@@ -141,6 +142,14 @@ class Kiwoom(QAxWidget):
                                                                                                     # 16.02.23  11000  11150  10900  11050
         return df[::-1]
 
+
+
+
+
+                                                                                                    # def _set_signal_slots(self):
+                                                                                                    #     self.OnEventConnect.connect(self._login_slot)
+                                                                                                    #     self.OnReceiveTrData.connect(self._on_receive_tr_data)    <<= TR response 발생 시 동작
+    # TR 받아서 > 딕셔너리 > 객체에 누적
     def _on_receive_tr_data(self, screen_no, rqname, trcode, record_name, next, unused1, unused2,unused3, unused4):  # TOnReceiveTrData 이벤트가 반환한 값 형식을 구현
         print("[Kiwoom] _on_receive_tr_data is called {} / {} / {}".format(screen_no, rqname, trcode))
         tr_data_cnt = self.dynamicCall("GetRepeatCnt(QString, QString)", trcode, rqname)            # GetRepeatCnt : 수신된 TR의 Row Count
@@ -195,4 +204,5 @@ class Kiwoom(QAxWidget):
             self.tr_data = ohlcv                                                                    # 임시 저장용 딕셔너리를 객체에 저장
 
         self.tr_event_loop.exit()                                                                   # 600개 처리 후 루핑종료 => 다시 받아오는 동작 시행
+                                                                                                    # self.tr_event_loop.exit()가 호출되면, 코드 실행이 exec_() 호출 이후의 지점으로 돌아감
         time.sleep(0.5)
