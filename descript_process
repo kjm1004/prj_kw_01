@@ -1,0 +1,23 @@
+signal(slost)
+self.OnReceiveTrData.connect(self._on_receive_tr_data)      시그널(슬롯) 생성  > 시그널 발생 ==> 슬롯 호출
+                                                            슬롯(var1, var2, var3, var4, var5, var6, var7, var8, var9 )
+
+
+self.tr_event_loop = QEventLoop()                   <== loop 객체 생성
+ tr_event_loop.exec_()     <== 루핑 시작
+ tr_event_loop.exec()      <== 루핑 종료(상태코드 인수 받음)
+ tr_event_loop.quit()      <== 루핑 종료(상태코드 인수 받지 않음)
+루핑이 종료되면, 코드 진행 절차는 exec_()로 복귀
+
+
+# [pandas DataFrame 형식]
+# date = ['16.02.29', '16.02.26', '16.02.25', '16.02.24', '16.02.23']
+# daeshin_day = DataFrame(daeshin, columns=['open', 'high', 'low', 'close'], index=date)
+# 새롭게 생성된 DataFrame 객체의 출력 값을 확인해 봅시다. 이번에는 그림 13.9와 일자도 일치하는 것을 확인할 수 있습니다.
+#
+#            open   high    low  close
+# 16.02.29  11650  12100  11600  11900
+# 16.02.26  11100  11800  11050  11600
+# 16.02.25  11200  11200  10900  11000
+# 16.02.24  11100  11100  10950  11100
+# 16.02.23  11000  11150  10900  11050
