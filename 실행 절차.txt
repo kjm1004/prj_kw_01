@@ -1,0 +1,34 @@
+[main.py]
+kiwoom = Kiwoom()	<== 실행
+df = kiwoom.get_price_data("005930")
+
+
+[kiwoom.py]
+class Kiwoom(QAxWidget):
+   def __init__(self):
+        super().__init__()
+        전처리...
+        self.tr_event_loop = QEventLoop()     <== 전 처리 후 TR 이벤트 루프 객체 생성 후, 
+                                                              main으로 복귀
+
+[main.py]
+kiwoom = Kiwoom()	
+df = kiwoom.get_price_data("005930")	<== 실행
+
+
+[kiwoom.py]
+class Kiwoom(QAxWidget):
+    def get_price_data(self, code):
+        self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10081_req", "opt10081", 0, "0001")   <== 서버로  TR 요청
+        self.tr_event_loop.exec_()          <== OS 이벤트 루프 대기 시작
+
+
+    def _set_signal_slots(self):
+        self.OnEventConnect.connect(self._login_slot)
+        self.OnReceiveTrData.connect(self._on_receive_tr_data)  <== TR대기 이벤트 생성. 서버 응답시 _on_receive_tr_data  동작
+
+
+    def _on_receive_tr_data
+         self.tr_event_loop.exit()            <== OS 이벤트 루프 대기 종료
+
+
