@@ -17,12 +17,14 @@ class Kiwoom(QAxWidget):
         self.tr_event_loop = QEventLoop()
 
         ## 변수 정의
-        self.order = {}                                                                             # 종목 코드를 키 값으로 해당 종목의 주문 정보를 담은 딕셔너리
-        self.balance = {}                                                                           # 종목 코드를 키 값으로 해당 종목의 매수 정보를 담은 딕셔너리
+        self.order = {}                                                                             # 주문정보 (종목 코드, 주문정보)
+        self.balance = {}                                                                           # 매수정보 (종목 코드, 매수정보)
+
 
     # 레지스트리에서 API 정보 가지고 옴
     def _make_kiwoom_instance(self):
         self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
+
 
     # 슬롯 생성
     def _set_signal_slots(self):
@@ -49,6 +51,8 @@ class Kiwoom(QAxWidget):
         self.login_event_loop = QEventLoop()
         self.login_event_loop.exec_()
 
+
+    # 계좌번호 가져오기
     def get_account_number(self, tag="ACCNO"):
         account_list = self.dynamicCall("GetLoginInfo(QString)", tag)                               # 키움 API : GetLoginInfo
         account_number = account_list.split(';')[0]
@@ -175,3 +179,40 @@ class Kiwoom(QAxWidget):
     # 주문 확인 메세지
     def _on_receive_msg(self, screen_no, rqname, trcode, msg):
         print("[Kiwoom] _on_receive_msg is called {} / {} / {} / {}".format(screen_no, rqname, trcode, msg))
+
+
+    # 체결 및 잔고
+    def _on_chejan_slot(self, s_gubun, n_item_cnt, s_fid_list):
+        print("[Kiwoom] _on_chejan_slot is called {} / {} / {}".format(s_gubun, n_item_cnt, s_fid_list))
+
+        for fid in s_fid_list.split(";"):                                                           # fid 리스트를 ‘;’ 기준으로 분리
+            if fid in FID_CODES:
+                code = self.dynamicCall("GetChejanData(int)", '9001')[1:]                           # 종목 코드를 얻어 와 앞자리 문자 제거
+                data = self.dynamicCall("GetChejanData(int)",fid)                                   # fid를 사용하여 데이터 얻어 오기(예 fid:9203을 전달하면 주문 번호를 수신하여 data에 저장)
+                data = data.strip().lstrip('+').lstrip('-')                                         # 데이터에 +, -가 붙어 있으면( +매수, -매도) 제거
+
+                if data.isdigit():                                                                  # 수신된 문자형 데이터를 숫자데이터 형변환
+                    data = int(data)
+
+                item_name = FID_CODES[fid]                                                          # fid 코드에 해당하는 항목(item_name)을 찾음(예 fid=9201 > item_name=계좌번호)
+                print("{}: {}".format(item_name, data))                                       # 얻어 온 데이터 출력(예 주문 가격: 37600)
+
+                if int(s_gubun) == 0:                                                               # 접수/체결(s_gubun=0)이면 self.order, 잔고 이동이면 self.balance에 값 저장
+
+                    if code not in self.order.keys():                                               # 아직 order에 종목 코드가 없다면 신규 생성하는 과정
+                        self.order[code] = {}
+
+                    self.order[code].update({item_name: data})                                      # order 딕셔너리에 데이터 저장
+
+                elif int(s_gubun) == 1:
+                    if code not in self.balance.keys():                                             # 아직 balance에 종목 코드가 없다면 신규 생성하는 과정
+                        self.balance[code] = {}
+
+                    self.balance[code].update({item_name: data})                                    # order 딕셔너리에 데이터 저장
+
+        if int(s_gubun) == 0:                                                                       # s_gubun 값에 따라 저장한 결과 출력
+            print("* 주문 출력(self.order)")
+            print(self.order)
+        elif int(s_gubun) == 1:
+            print("* 잔고 출력(self.balance)")
+            print(self.balance)
