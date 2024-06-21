@@ -19,20 +19,24 @@ class Kiwoom(QAxWidget):
         ## 변수 정의
         self.order = {}                                                                             # 주문정보 (종목 코드, 주문정보)
         self.balance = {}                                                                           # 매수정보 (종목 코드, 매수정보)
+        self.universe_realtime_transaction_info = {}                                                # 실시간 체결 정보
 
 
-    # 레지스트리에서 API 정보 가지고 옴
+        # 레지스트리에서 API 정보 가지고 옴
     def _make_kiwoom_instance(self):
         self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
 
 
-    # 슬롯 생성
+    # 슬롯 생성 ############################################################
     def _set_signal_slots(self):
         self.OnEventConnect.connect(self._login_slot)
         self.OnReceiveTrData.connect(self._on_receive_tr_data)                                      # TR 수신 데이터 처리
 
         self.OnReceiveMsg.connect(self._on_receive_msg)                                             # 주문 메시지를 _on_receive_msg로 받도록 설정
         self.OnReceiveChejanData.connect(self._on_chejan_slot)                                      # 주문 접수/체결 결과를 _on_chejan_slot으로 받도록 설정
+
+        self.OnReceiveRealData.connect(self._on_receive_real_data)                                  # 실시간 체결 데이터를 _on_receive_real_data로 받도록 설정
+
 
 
     # 로그인 슬롯 발생
@@ -150,6 +154,92 @@ class Kiwoom(QAxWidget):
             print(self.tr_data)
 
 
+        # 주문 정보 확인 (opt10075)
+        elif rqname == "opt10075_req":
+            for i in range(tr_data_cnt):                                                            # 당일 주문정보가 여러 개
+                code = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "종목코드")
+                code_name = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "종목명")
+                order_number = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "주문번호")
+                order_status = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "주문상태")
+                order_quantity = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "주문수량")
+                order_price = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "주문가격")
+                current_price = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "현재가")
+                order_type = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "주문구분")
+                left_quantity = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "미체결수량")
+                executed_quantity = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "체결량")
+                ordered_at = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "시간")
+                fee = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "당일매매수수료")
+                tax = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "당일매매세금")
+
+                # 데이터 정리
+                code = code.strip()
+                code_name = code_name.strip()
+                order_number = str(int(order_number.strip()))
+                order_status = order_status.strip()
+                order_quantity = int(order_quantity.strip())
+                order_price = int(order_price.strip())
+                current_price = int(current_price.strip().lstrip('+').lstrip('-'))
+                order_type = order_type.strip().lstrip('+').lstrip('-')                             # +매수, -매도처럼 +, - 제거
+                left_quantity = int(left_quantity.strip())
+                executed_quantity = int(executed_quantity.strip())
+                ordered_at = ordered_at.strip()
+
+                # 세금 및 수수료 정리
+                fee = int(fee)
+                tax = int(tax)
+
+                # 딕셔너리 추가
+                self.order[code] = {
+                    '종목코드': code,
+                    '종목명': code_name,
+                    '주문번호': order_number,
+                    '주문상태': order_status,
+                    '주문수량': order_quantity,
+                    '주문가격': order_price,
+                    '현재가': current_price,
+                    '주문구분': order_type,
+                    '미체결수량': left_quantity,
+                    '체결량': executed_quantity,
+                    '주문시간': ordered_at,
+                    '당일매매수수료': fee,
+                    '당일매매세금': tax
+                }
+
+            self.tr_data = self.order
+
+
+        # 보유 종목 정보(잔고 정보)
+        elif rqname == "opw00018_req":
+            for i in range(tr_data_cnt):
+                code                = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "종목번호")
+                code_name           = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "종목명")
+                quantity            = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "보유수량")
+                purchase_price      = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "매입가")
+                return_rate         = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "수익률(%)")
+                current_price       = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "현재가")
+                total_purchase_price= self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "매입금액")
+                available_quantity  = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "매매가능수량")
+
+                code = code.strip()[1:]  # 데이터 형변환 및 가공
+                code_name = code_name.strip()
+                quantity = int(quantity)
+                purchase_price = int(purchase_price)
+                return_rate = float(return_rate)
+                current_price = int(current_price)
+                total_purchase_price = int(total_purchase_price)
+                available_quantity = int(available_quantity)
+
+                self.balance[code] = {
+                    '종목명': code_name,
+                    '보유수량': quantity,
+                    '매입가': purchase_price,
+                    '수익률': return_rate,
+                    '현재가': current_price,
+                    '매입금액': total_purchase_price,
+                    '매매가능수량': available_quantity
+                }
+
+                self.tr_data = self.balance
 
         self.tr_event_loop.exit()                                                                   # TR 슬롯 호출지점 복귀 (멀티행일 경우 재실행)
         time.sleep(0.5)
@@ -216,14 +306,84 @@ class Kiwoom(QAxWidget):
             print("* 잔고 출력(self.balance)")
             print(self.balance)
 
+
+
     # 주문 정보 확인
-    def get_order(self):                                                                            # 주문 정보를 얻어 오는 함수
+    def get_order(self):
         self.dynamicCall("SetInputValue(QString, QString)", "계좌번호", self.account_number)
         self.dynamicCall("SetInputValue(QString, QString)", "전체종목구분", "0")
         self.dynamicCall("SetInputValue(QString, QString)", "체결구분", "0")                          # 0:전체, 1:미체결, 2:체결
         self.dynamicCall("SetInputValue(QString, QString)", "매매구분", "0")                          # 0:전체, 1:매도, 2:매수
-
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10075_req", "opt10075", 0, "0002")
 
         self.tr_event_loop.exec_()
         return self.tr_data
+
+
+
+    # 계좌 잔고 현황 (잔고: 체결 주식 현황)
+    def get_balance(self):
+        self.dynamicCall("SetInputValue(QString, QString)", "계좌번호", self.account_number)
+        self.dynamicCall("SetInputValue(QString, QString)", "비밀번호입력매체구분", "00")
+        self.dynamicCall("SetInputValue(QString, QString)", "조회구분", "1")
+        self.dynamicCall("CommRqData(QString, QString, int, QString)", "opw00018_req", "opw00018", 0, "0002")
+
+        self.tr_event_loop.exec_()
+        return self.tr_data
+
+
+
+    # 실시간 현황 조회
+    def set_real_reg(self, str_screen_no, str_code_list, str_fid_list, str_opt_type):
+        self.dynamicCall("SetRealReg(QString, QString, QString, QString)",
+                         str_screen_no, str_code_list, str_fid_list, str_opt_type)
+                                                                                                    # str_code_list 종목코드는 여러종목을 리스트 형식으로 가지고 옴
+                                                                                                    # str_opt_type : 최초 등록, 추가 등록
+        time.sleep(0.5)
+
+    # 실시간 데이터 수신
+    def _on_receive_real_data(self, s_code, real_type, real_data):                                  # real_type : 장 시작 시간 / 체결 정보
+        if real_type == "장시작시간":
+            pass
+
+        elif real_type == "주식체결":
+            signed_at = self.dynamicCall("GetCommRealData(QString, int)", s_code, get_fid("체결시간"))
+
+            close = self.dynamicCall("GetCommRealData(QString, int)", s_code, get_fid("현재가"))
+            close = abs(int(close))
+
+            high = self.dynamicCall("GetCommRealData(QString, int)", s_code, get_fid('고가'))
+            high = abs(int(high))
+
+            open = self.dynamicCall("GetCommRealData(QString, int)", s_code, get_fid('시가'))
+            open = abs(int(open))
+
+            low = self.dynamicCall("GetCommRealData(QString, int)", s_code, get_fid('저가'))
+            low = abs(int(low))
+
+            top_priority_ask = self.dynamicCall("GetCommRealData(QString, int)", s_code, get_fid('(최우선)매도호가'))
+            top_priority_ask = abs(int(top_priority_ask))
+
+            top_priority_bid = self.dynamicCall("GetCommRealData(QString, int)", s_code, get_fid('(최우선)매수호가'))
+            top_priority_bid = abs(int(top_priority_bid))
+
+            accum_volume = self.dynamicCall("GetCommRealData(QString, int)", s_code, get_fid('누적거래량'))
+            accum_volume = abs(int(accum_volume))
+
+            print(s_code, signed_at, close, high, open, low, top_priority_ask, top_priority_bid,    # 5장에서는 삭제할 코드(출력부에 너무 많은 데이터가 나오기 때문에 여기서만 사용)
+                  accum_volume)
+
+            if s_code not in self.universe_realtime_transaction_info:                               # universe_realtime_transaction_info 딕셔너리에 종목 코드가 키 값으로 존재하지 않으면 생성(해당 종목 실시간 데이터를 최초로 수신할 때)
+                self.universe_realtime_transaction_info.update({s_code: {}})
+
+            self.universe_realtime_transaction_info[s_code].update(                                 # 최초 수신 이후 계속 수신되는 데이터는 update를 이용해서 값 갱신
+                {
+                    "체결시간": signed_at,
+                    "시가": open,
+                    "고가": high,
+                    "저가": low,
+                    "현재가": close,
+                    "(최우선)매도호가": top_priority_ask,
+                    "(최우선)매수호가": top_priority_bid,
+                    "누적거래량": accum_volume
+                })
