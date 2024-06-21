@@ -186,28 +186,27 @@ class Kiwoom(QAxWidget):
         print("[Kiwoom] _on_chejan_slot is called {} / {} / {}".format(s_gubun, n_item_cnt, s_fid_list))
 
         for fid in s_fid_list.split(";"):                                                           # fid 리스트를 ‘;’ 기준으로 분리
-            if fid in FID_CODES:
-                code = self.dynamicCall("GetChejanData(int)", '9001')[1:]                           # 종목 코드를 얻어 와 앞자리 문자 제거
-                data = self.dynamicCall("GetChejanData(int)",fid)                                   # fid를 사용하여 데이터 얻어 오기(예 fid:9203을 전달하면 주문 번호를 수신하여 data에 저장)
-                data = data.strip().lstrip('+').lstrip('-')                                         # 데이터에 +, -가 붙어 있으면( +매수, -매도) 제거
+            if fid in FID_CODES:                                                                    # FID_CODES <== const.py에 딕셔너리로 정의되어 있음. fid가 FID_CODES에 있는지 검사
+                code = self.dynamicCall("GetChejanData(int)", '9001')[1:]                           # 종목 코드를 얻어 와 앞자리 문자 제거[1:] 후 종목코드 변수에 저장
 
-                if data.isdigit():                                                                  # 수신된 문자형 데이터를 숫자데이터 형변환
+                data = self.dynamicCall("GetChejanData(int)",fid)                                   # fid를 사용하여 데이터 얻어 오기(예 fid:9203을 전달하면 주문 번호를 수신하여 data에 저장)
+                data = data.strip().lstrip('+').lstrip('-')                                         # 데이터에 공백, +, -가 붙어 있으면( +매수, -매도) 제거 <== trim
+
+                if data.isdigit():                                                                  # data 값이 숫자형식이면 정수형 변환 처리
                     data = int(data)
 
                 item_name = FID_CODES[fid]                                                          # fid 코드에 해당하는 항목(item_name)을 찾음(예 fid=9201 > item_name=계좌번호)
-                print("{}: {}".format(item_name, data))                                       # 얻어 온 데이터 출력(예 주문 가격: 37600)
+                print("주문내역 = {} : {}".format(item_name, data))                                       # 얻어 온 데이터 출력(예 주문 가격: 37600)
 
-                if int(s_gubun) == 0:                                                               # 접수/체결(s_gubun=0)이면 self.order, 잔고 이동이면 self.balance에 값 저장
+                if int(s_gubun) == 0:                                                               # 접수/체결(s_gubun=0)이면 self.order,
 
                     if code not in self.order.keys():                                               # 아직 order에 종목 코드가 없다면 신규 생성하는 과정
                         self.order[code] = {}
-
                     self.order[code].update({item_name: data})                                      # order 딕셔너리에 데이터 저장
 
-                elif int(s_gubun) == 1:
+                elif int(s_gubun) == 1:                                                             # 잔고 이동이면 self.balance에 값 저장
                     if code not in self.balance.keys():                                             # 아직 balance에 종목 코드가 없다면 신규 생성하는 과정
                         self.balance[code] = {}
-
                     self.balance[code].update({item_name: data})                                    # order 딕셔너리에 데이터 저장
 
         if int(s_gubun) == 0:                                                                       # s_gubun 값에 따라 저장한 결과 출력

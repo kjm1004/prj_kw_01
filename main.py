@@ -17,9 +17,9 @@ kiwoom = Kiwoom()
 
 #deposit = kiwoom.get_deposit()
 
-order_result = kiwoom.send_order('send_buy_order', '1001', 1, '007700', 1, 35000, '00')
-
+order_result = kiwoom.send_order('send_buy_order', '1001', 1, '007700', 1, 15300, '00')
 print("주문결과 : %s" % order_result)
+
 
 app.exec_()
 
