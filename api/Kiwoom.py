@@ -3,6 +3,7 @@ import time
 import pandas as pd
 from PyQt5.QAxContainer import *
 from PyQt5.QtCore import *
+from util.const import *
 
 
 class Kiwoom(QAxWidget):
@@ -15,6 +16,10 @@ class Kiwoom(QAxWidget):
 
         self.tr_event_loop = QEventLoop()
 
+        ## 변수 정의
+        self.order = {}                                                                             # 종목 코드를 키 값으로 해당 종목의 주문 정보를 담은 딕셔너리
+        self.balance = {}                                                                           # 종목 코드를 키 값으로 해당 종목의 매수 정보를 담은 딕셔너리
+
     # 레지스트리에서 API 정보 가지고 옴
     def _make_kiwoom_instance(self):
         self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
@@ -22,9 +27,9 @@ class Kiwoom(QAxWidget):
     # 슬롯 생성
     def _set_signal_slots(self):
         self.OnEventConnect.connect(self._login_slot)
-        self.OnReceiveTrData.connect(self._on_receive_tr_data)
+        self.OnReceiveTrData.connect(self._on_receive_tr_data)                                      # TR 수신 데이터 처리
 
-        self.OnReceiveMsg.connect(self._on_receive_msg)                                             # TR/주문 메시지를 _on_receive_msg로 받도록 설정
+        self.OnReceiveMsg.connect(self._on_receive_msg)                                             # 주문 메시지를 _on_receive_msg로 받도록 설정
         self.OnReceiveChejanData.connect(self._on_chejan_slot)                                      # 주문 접수/체결 결과를 _on_chejan_slot으로 받도록 설정
 
 
@@ -166,3 +171,7 @@ class Kiwoom(QAxWidget):
             [rqname, screen_no, self.account_number, order_type, code, order_quantity,
              order_price, order_classification, origin_order_number])
         return order_result
+
+    # 주문 확인 메세지
+    def _on_receive_msg(self, screen_no, rqname, trcode, msg):
+        print("[Kiwoom] _on_receive_msg is called {} / {} / {} / {}".format(screen_no, rqname, trcode, msg))
