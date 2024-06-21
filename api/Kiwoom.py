@@ -215,3 +215,15 @@ class Kiwoom(QAxWidget):
         elif int(s_gubun) == 1:
             print("* 잔고 출력(self.balance)")
             print(self.balance)
+
+    # 주문 정보 확인
+    def get_order(self):                                                                            # 주문 정보를 얻어 오는 함수
+        self.dynamicCall("SetInputValue(QString, QString)", "계좌번호", self.account_number)
+        self.dynamicCall("SetInputValue(QString, QString)", "전체종목구분", "0")
+        self.dynamicCall("SetInputValue(QString, QString)", "체결구분", "0")                          # 0:전체, 1:미체결, 2:체결
+        self.dynamicCall("SetInputValue(QString, QString)", "매매구분", "0")                          # 0:전체, 1:매도, 2:매수
+
+        self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10075_req", "opt10075", 0, "0002")
+
+        self.tr_event_loop.exec_()
+        return self.tr_data
