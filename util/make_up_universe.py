@@ -39,7 +39,8 @@ def execute_crawler():
 
     df_total = pd.concat(df_total)                                                                  # df_total을 하나의 데이터프레임으로 만듦
     df_total.reset_index(inplace=True, drop=True)                                                   # 합친 데이터 프레임의 index 번호를 새로 매김
-    df_total.to_excel('NaverFinance.xlsx')                                                          # 전체 크롤링 결과를 엑셀로 출력
+    filename = f'NaverFinance_{formattedDate}.xlsx'                                                 # f-string 포맷팅
+    df_total.to_excel(filename)                                                                     # 전체 크롤링 결과를 엑셀로 출력
 
     return df_total  # 크롤링 결과를 반환
 
@@ -47,25 +48,52 @@ def execute_crawler():
 def crawler(code, page):
     global fields
 
+    # 네이버 파인넨스에 각 페이지 요청 : 요청 시 매개변수 menu, fieldIds, returnUrl
     data = {'menu': 'market_sum',
             'fieldIds': fields,
-            'returnUrl': BASE_URL + str(code) + "&page=" + str(page)}                               # Naver Finance에 전달할 값들 세팅(요청을 보낼 때는 menu, fieldIds, returnUrl을 지정해서 보내야 함)
-
+            'returnUrl': BASE_URL + str(code) + "&page=" + str(page)}
     res = requests.post('https://finance.naver.com/sise/field_submit.nhn', data=data)           # 네이버로 요청을 전달(post 방식)
+
+    #요청 후 반환 페이지 분석
     page_soup = BeautifulSoup(res.text, 'lxml')
+    table_html = page_soup.select_one('div.box_type_l')                                             # div 추출
+    header_data = [item.get_text().strip() for item in table_html.select('thead th')][1: -1]        # 전체 head 행 추출 : thead > th > 텍스트 추출(get_text), [1: -1] > 처음과 마지막 요소 제외
 
-    table_html = page_soup.select_one('div.box_type_l')                                             # 크롤링할 table의 html을 가져오는 코드(크롤링 대상 요소의 클래스는 웹 브라우저에서 확인)
-    header_data = [item.get_text().strip() for item in table_html.select('thead th')][1: -1]        # column 이름을 가공
 
-    inner_data = [item.get_text().strip()                                                           # 종목명 + 수치 추출(a.title = 종목명, td.number = 기타 수치)
-                  for item in table_html.find_all(lambda x: (x.name == 'a' and 'tltle' in x.get('class', [])) or (x.name == 'td' and 'number' in x.get('class', [])))]
+    inner_data = [item.get_text().strip()                                                           # 대상 데이터를 리스트로 생성 > lambda : 조건에 맞는 태그만 추출
+                  for item in table_html.find_all(                                                  # 조건 : title 클래스인 <a>, number 클래스인 <td>
+                        lambda x: (x.name == 'a' and 'tltle' in x.get('class', []))
+                        or
+                        (x.name == 'td' and 'number' in x.get('class', []))
+                  )
+                 ]
 
-    no_data = [item.get_text().strip() for item in table_html.select('td.no')]  # 페이지마다 있는 종목의 순번 가져오기
-    number_data = np.array(inner_data)
+    no_data = [item.get_text().strip() for item in table_html.select('td.no')]                      # 페이지마다 있는 종목의 순번 가져와서 리스트 생성
+    number_data = np.array(inner_data)                                                              #
+                                                                                                    # np 배열로 변환
+                                                                                                    # ***** 코드 예시 *****
+                                                                                                    # <table>
+                                                                                                    #   <tr>
+                                                                                                    #     <td class="no">1</td>
+                                                                                                    #     <td class="number">1234</td>
+                                                                                                    #     <td class="number">5678</td>
+                                                                                                    #     <td><a class="tltle" href="#">종목1</a></td>
+                                                                                                    #   </tr>
+                                                                                                    #   <tr>
+                                                                                                    #     <td class="no">2</td>
+                                                                                                    #     <td class="number">9101</td>
+                                                                                                    #     <td class="number">1121</td>
+                                                                                                    #     <td><a class="tltle" href="#">종목2</a></td>
+                                                                                                    #   </tr>
+                                                                                                    # </table>
+                                                                                                    # 결과
+                                                                                                    # inner_data:  ['1234', '5678', '종목1', '9101', '1121', '종목2']
+                                                                                                    # no_data: ['1', '2']
+                                                                                                    # number_data: np.array(inner_data)
 
-    number_data.resize(len(no_data), len(header_data))  # 가로×세로 크기에 맞게 행렬화
+    number_data.resize(len(no_data), len(header_data))                                              # 가로×세로 크기에 맞게 행렬화
 
-    df = pd.DataFrame(data=number_data, columns=header_data)  # 한 페이지에서 얻은 정보를 모아 데이터프레임으로 만들어 반환
+    df = pd.DataFrame(data=number_data, columns=header_data)                                        # 한 페이지에서 얻은 정보를 모아 데이터프레임으로 만들어 반환
     return df
 
 
@@ -73,3 +101,28 @@ if __name__ == "__main__":
     print('Start!')
     execute_crawler()
     print('End')
+
+
+def get_universe():
+    df = execute_crawler()                                                                          # 크롤링 결과를 얻어 옴
+    mapping = {',': '', 'N/A': '0'}
+    df.replace(mapping, regex=True, inplace=True)
+    cols = ['거래량', '매출액', '매출액증가율', 'ROE', 'PER']                                           # 사용할 column들 설정
+    df[cols] = df[cols].astype(float)                                                               # column들을 숫자 타입으로 변환(Naver Finance를 크롤링해 온 데이터는 str 형태)
+    df = df[(df['거래량'] > 0)                                                                       # 유니버스 구성 조건 ➊~➍를 만족하는 데이터 가져오기
+                & (df['매출액'] > 0)
+                & (df['매출액증가율'] > 0)
+                & (df['ROE'] > 0)
+                & (df['PER'] > 0)
+                & (~df.종목명.str.contains("지주"))
+                & (~df.종목명.str.contains("홀딩스"))
+           ]
+    df['1/PER'] = 1 / df['PER']                                                                     # PER 역수
+    df['RANK_ROE'] = df['ROE'].rank(method='max', ascending=False)                                  # ROE의 순위 계산
+    df['RANK_1/PER'] = df['1/PER'].rank(method='max', ascending=False)                              # 1/PER의 순위 계산
+    df['RANK_VALUE'] = (df['RANK_ROE'] + df['RANK_1/PER']) / 2                                      # ROE 순위, 1/PER 순위를 합산한 랭킹
+    df = df.sort_values(by=['RANK_VALUE'])                                                          # RANK_VALUE를 기준으로 정렬
+    df.reset_index(inplace=True, drop=True)                                                         # 필터링한 데이터프레임의 index 번호를 새로 매김
+    df = df.loc[:199]                                                                               # 상위 200개만 추출
+    df.to_excel('universe.xlsx')                                                                    # 유니버스 생성 결과를 엑셀로 출력
+    return df ['종목명'].tolist()
