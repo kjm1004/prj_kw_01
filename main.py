@@ -1,9 +1,11 @@
 from PyQt5.QtWidgets import QApplication
 from api.Kiwoom import *
+from strategy.RSIStrategy import *
 import sys
 
 from api.Kiwoom import *
 
+# OS 이벤트 작동 절차 예시
 # app = QApplication(sys.argv)          <== 이벤트 루프 : OS의 이벤트, PyQt의 이벤트를 받아들임
 #   window = MyWindow()
 #   window.show()
@@ -11,7 +13,7 @@ from api.Kiwoom import *
 
 app = QApplication(sys.argv)
 
-kiwoom = Kiwoom()
+# kiwoom = Kiwoom()
 # df = kiwoom.get_price_data("005930")
 # print(df)
 
@@ -26,14 +28,17 @@ kiwoom = Kiwoom()
 # print(orders)
 
 # 주식 체결 잔고 현황 보기
-position = kiwoom.get_balance()
-print(position)
+# position = kiwoom.get_balance()
+# print(position)
 
 # 주식 실시간 체결현황 보기
 # 예시: kiwoom.set_real_reg("1000", "", get_fid("장운영구분"), "0")
-fids = get_fid("체결시간")
-codes = '005930;007700;000660;'
-kiwoom.set_real_reg("1000", codes, fids, "0")
+# fids = get_fid("체결시간")
+# codes = '005930;007700;000660;'
+# kiwoom.set_real_reg("1000", codes, fids, "0")
+
+rsi_strategy = RSIStrategy()
+rsi_strategy.start()
 
 app.exec_()
 

@@ -12,7 +12,6 @@ fields = []
 now = datetime.now()
 formattedDate = now.strftime("%Y%m%d")
 
-
 def execute_crawler():
     df_total = []                                                                                   # KOSPI, KOSDAQ 종목을 하나로 합치는 데 사용할 변수
 
@@ -96,33 +95,35 @@ def crawler(code, page):
     df = pd.DataFrame(data=number_data, columns=header_data)                                        # 한 페이지에서 얻은 정보를 모아 데이터프레임으로 만들어 반환
     return df
 
-
-if __name__ == "__main__":
-    print('Start!')
-    execute_crawler()
-    print('End')
-
-
 def get_universe():
     df = execute_crawler()                                                                          # 크롤링 결과를 얻어 옴
     mapping = {',': '', 'N/A': '0'}
-    df.replace(mapping, regex=True, inplace=True)
+    df.replace(mapping, regex=True, inplace=True)                                                   # mapping 형식으로 replace
     cols = ['거래량', '매출액', '매출액증가율', 'ROE', 'PER']                                           # 사용할 column들 설정
-    df[cols] = df[cols].astype(float)                                                               # column들을 숫자 타입으로 변환(Naver Finance를 크롤링해 온 데이터는 str 형태)
-    df = df[(df['거래량'] > 0)                                                                       # 유니버스 구성 조건 ➊~➍를 만족하는 데이터 가져오기
-                & (df['매출액'] > 0)
-                & (df['매출액증가율'] > 0)
-                & (df['ROE'] > 0)
-                & (df['PER'] > 0)
-                & (~df.종목명.str.contains("지주"))
-                & (~df.종목명.str.contains("홀딩스"))
+    df[cols] = df[cols].astype(float)                                                               # 크롤링해 온 데이터는 str > float으로 변환
+
+    # 유니버스 필터링
+    df = df[      (df['거래량'] > 0) & (df['매출액'] > 0)                                             # 거래 중지 종목 및 우선주, ETF를 제외
+                & (df['매출액증가율'] > 0) & (df['ROE'] > 0)                                          # 그대로 매출액 증가율과 ROE가 0보다 큰 종목
+                & (df['PER'] > 0)                                                                   # PER이 낮을수록 좋지만, 마이너스 값은 제외 (per가 낮으면 저위험 투자)
+                & (~df.종목명.str.contains("지주")) & (~df.종목명.str.contains("홀딩스"))               # 종목명에 ‘지주’이거나 ‘홀딩스’인 데이터를 제외. ~ : not
            ]
-    df['1/PER'] = 1 / df['PER']                                                                     # PER 역수
+    df['1/PER'] = 1 / df['PER']                                                                     # PER에 대해 내림차순 정렬을 위해서
     df['RANK_ROE'] = df['ROE'].rank(method='max', ascending=False)                                  # ROE의 순위 계산
     df['RANK_1/PER'] = df['1/PER'].rank(method='max', ascending=False)                              # 1/PER의 순위 계산
     df['RANK_VALUE'] = (df['RANK_ROE'] + df['RANK_1/PER']) / 2                                      # ROE 순위, 1/PER 순위를 합산한 랭킹
     df = df.sort_values(by=['RANK_VALUE'])                                                          # RANK_VALUE를 기준으로 정렬
     df.reset_index(inplace=True, drop=True)                                                         # 필터링한 데이터프레임의 index 번호를 새로 매김
-    df = df.loc[:199]                                                                               # 상위 200개만 추출
-    df.to_excel('universe.xlsx')                                                                    # 유니버스 생성 결과를 엑셀로 출력
+
+    # 상위 200개만 추출
+    df = df.loc[:199]
+
+    filename = f'universe{formattedDate}.xlsx'
+    df.to_excel(filename)                                                                           # 유니버스 생성 결과를 엑셀로 출력
     return df ['종목명'].tolist()
+
+
+if __name__ == "__main__":
+    print('Start!')
+    get_universe()
+    print('End')
