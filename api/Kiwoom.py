@@ -77,7 +77,7 @@ class Kiwoom(QAxWidget):
 
 
     # [ OPT10081 : 주식일봉차트조회요청 ]
-    # TR요청을 1회하면, 600개씩 끊어서 18회 이벤트 동작
+    # 종목코드별 TR요청 처리 : 600행씩 ohlcv에 누적 후, self.tr_data에 저장
     def get_price_data(self, code):
         # 첫 TR처리. 600개 처리
         self.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)
@@ -94,21 +94,21 @@ class Kiwoom(QAxWidget):
             self.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)
             self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")
             self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10081_req", "opt10081", 2, "0001")
-            self.tr_event_loop.exec_()                                                              # TR 1건씩 처리:1건에 600행
+            self.tr_event_loop.exec_()                                                              # loop 시작  >> _on_receive_tr_data에서 self.tr_event_loop.exit() loop 종료
 
             for key, val in self.tr_data.items():
                 ohlcv[key][-1:] = val                                                               # 기존 딕셔너리 마지막에 추가. 각 컬럼(6) * 600건씩 처리
 
         df = pd.DataFrame(ohlcv, columns=['open', 'high', 'low', 'close', 'volume'], index=ohlcv['date'])
 
-        return df[::-1]
+        return df[::-1]                                                                             # 1개 종목 처리끝
 
 
 
     # OnReceiveTrData 시그널에 의한 슬롯 처리
     def _on_receive_tr_data(self, screen_no, rqname, trcode, record_name, next, unused1, unused2,unused3, unused4):
         # 수신된 TR 정보 출력
-        print("[Kiwoom] _on_receive_tr_data is called {} / {} / {}".format(screen_no, rqname, trcode))
+        print("[Kiwoom TR처리] _on_receive_tr_data is called {} / {} / {}".format(screen_no, rqname, trcode))
         tr_data_cnt = self.dynamicCall("GetRepeatCnt(QString, QString)", trcode, rqname)            # GetRepeatCnt : 수신된 TR의 Row Count
         # print("[Kiwoom] tr_data_cnt: %s " % tr_data_cnt)
         # print("[Kiwoom] OnReceiveTrData.next : %s" % next)
@@ -119,9 +119,10 @@ class Kiwoom(QAxWidget):
         else:
             self.has_next_tr_data = False
 
-        # TR : opt10081 (주식일봉차트조회요청)
+        # TR : opt10081 (주식일봉차트조회요청) : (시그널)OnReceiveTrData > (슬롯)_on_receive_tr_data 호출 > (슬롯매개변수)rqname=opt10081_req
+        # TR(600행)을 (딕셔너리)ohlcv에 누적했다가 (객체)self.tr_data에 저장
         if rqname == "opt10081_req":
-            ohlcv = {'date': [], 'open': [], 'high': [], 'low': [], 'close': [], 'volume': []}      # 임시 처리용 딕셔너리 생성
+            ohlcv = {'date': [], 'open': [], 'high': [], 'low': [], 'close': [], 'volume': []}      # 딕셔너리 생성 > 임시 보관용
 
             # TR 1건 처리(주식일봉차트조회요청는 TR 1건이 600행)
             for i in range(tr_data_cnt):
@@ -135,7 +136,7 @@ class Kiwoom(QAxWidget):
                 close = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "현재가")
                 volume = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "거래량")
 
-                # 2) 딕셔너리에 저장(ohlcv)
+                # 2) 딕셔너리에 저장(ohlcv) > 600행 누적
                 ohlcv['date'].append(date.strip())
                 ohlcv['open'].append(int(open))
                 ohlcv['high'].append(int(high))

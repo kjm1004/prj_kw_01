@@ -73,13 +73,13 @@ class RSIStrategy(QThread):
         print(self.universe)
 
 
-    # DB에 최신 일봉 데이터가 있는지 확인하고 없다면 생성하는 함수
+    # universe테이블의 종목코드별로 최신 일봉데이터가 있는지 확인하고 없다면 생성하는 함수
     def check_and_get_price_data(self):
         for idx, code in enumerate(self.universe.keys()):                                           # self.universe.keys() : 종목코드
             print("({}/{}) {}".format(idx + 1, len(self.universe), code))                    # 유니버스에 등록된 코드 모두 출력 ==> (1/200) 000270
 
             if check_transaction_closed() and not check_table_exist(self.strategy_name, code):      # 사례 ➊: 장 종료이며, 테이블이 없다면
-                price_df = self.kiwoom.get_price_data(code)                                         # API를 이용하여 조회한 가격 데이터 price_df에 저장
+                price_df = self.kiwoom.get_price_data(code)                                         # 종목코드별 TR 요청(주식일봉차트조회요청)
                 insert_df_to_db(self.strategy_name, code, price_df)                                 # 코드를 테이블 이름으로 해서 데이터베이스에 저장
 
             else:                                                                                   # 장 종료가 아니거나, 데이터가 있다면
@@ -91,8 +91,8 @@ class RSIStrategy(QThread):
                     now = datetime.now().strftime("%Y%m%d")                                         # 오늘 날짜 지정
 
                     if last_date[0] != now:                                                         # 최근 저장 일자가 오늘이 아니면, 오늘 일봉 데이터 생성
-                        price_df = self.kiwoom.get_price_data(code)
-                        insert_df_to_db(self.strategy_name, code, price_df)                         # 일봉 데이터를 DB에 저장
+                        price_df = self.kiwoom.get_price_data(code)                                 # 종목코드별 TR 요청(주식일봉차트조회요청)
+                        insert_df_to_db(self.strategy_name, code, price_df)                         # 종목코드별 일봉 데이터를 DB에 저장
 
 
                 else:                                                                               # 사례 ➌~➍: 장 시작 전이거나 장 중인 경우 데이터베이스에 저장된 데이터 조회
