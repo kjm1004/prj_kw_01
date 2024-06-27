@@ -19,20 +19,20 @@ class RSIStrategy(QThread):
 
     def init_strategy(self):                                                                        # 전략 초기화 기능을 수행하는 함수
         try:
-            self.check_and_get_universe()
-            self.check_and_get_price_data()
+            self.check_and_get_universe()                                                           # 유니버스 생성
+            self.check_and_get_price_data()                                                         # 유니버스 딕셔너리 구성
             self.kiwoom.get_order()                                                                 # 주문 정보 확인
-        self.kiwoom.get_balance()                                                                   # 잔고 확인
+            self.kiwoom.get_balance()                                                               # 잔고 확인
             self.deposit = self.kiwoom.get_deposit()                                                # 예수금 확인
             self.set_universe_real_time()                                                           # 유니버스 실시간 체결 정보 등록
             self.is_init_success = True
 
-    except Exception as e:
-    print(traceback.format_exc())
+        except Exception as e:
+            print(traceback.format_exc())
 
     def check_and_get_universe(self):
 
-        # 유니버스가 있는지 확인하고 없으면 생성
+        # 유니버스 테이블 존재 확인
         if not check_table_exist(self.strategy_name, 'universe'):
             universe_list = get_universe()
             print(universe_list)
@@ -59,11 +59,12 @@ class RSIStrategy(QThread):
 
 
         # select * from universe 쿼리 결과를 self.universe 딕셔너리에 저장
-        # 예) self.universe = {'000270':{'code_name':'기아'}}
+        # 예) universe_list = {'000270':{'code_name':'기아'}}
         sql = "select * from universe"
         cur = execute_sql(self.strategy_name, sql)
-        universe_list = cur.fetchall()                                                              # select * from universe 결과 >> 딕셔너리 저장
+        universe_list = cur.fetchall()
 
+        # self.universe[code] = {(0,'000270','기아','20240626')}
         for item in universe_list:
             idx, code, code_name, created_at = item
             self.universe[code] = {
@@ -72,16 +73,35 @@ class RSIStrategy(QThread):
         print(self.universe)
 
 
-    # 일봉 데이터가 있는지 확인하고 없다면 생성하는 함수
+    # DB에 최신 일봉 데이터가 있는지 확인하고 없다면 생성하는 함수
     def check_and_get_price_data(self):
-        for idx, code in enumerate(self.universe.keys()):
-            print("({}/{}) {}".format(idx + 1, len(self.universe), code))
+        for idx, code in enumerate(self.universe.keys()):                                           # self.universe.keys() : 종목코드
+            print("({}/{}) {}".format(idx + 1, len(self.universe), code))                    # 유니버스에 등록된 코드 모두 출력 ==> (1/200) 000270
 
-            if check_transaction_closed() and not check_table_exist(self.strategy_name, code):      # 사례 ➊: 일봉 데이터가 아예 없는지 확인(장 종료 이후)
+            if check_transaction_closed() and not check_table_exist(self.strategy_name, code):      # 사례 ➊: 장 종료이며, 테이블이 없다면
                 price_df = self.kiwoom.get_price_data(code)                                         # API를 이용하여 조회한 가격 데이터 price_df에 저장
                 insert_df_to_db(self.strategy_name, code, price_df)                                 # 코드를 테이블 이름으로 해서 데이터베이스에 저장
-            else:
-                pass                                                                                # 사례 ➋~➍: 일봉 데이터가 있는 경우
+
+            else:                                                                                   # 장 종료가 아니거나, 데이터가 있다면
+
+                if check_transaction_closed():                                                      # 사례 ➋: 장이 종료되었다면
+                    sql = "select max(`{}`) from `{}`".format('index', code)                 # 저장된 데이터의 가장 최근 일자 조회
+                    cur = execute_sql(self.strategy_name, sql)
+                    last_date = cur.fetchone()                                                      # 일봉 데이터를 저장한 가장 최근 일자 조회
+                    now = datetime.now().strftime("%Y%m%d")                                         # 오늘 날짜 지정
+
+                    if last_date[0] != now:                                                         # 최근 저장 일자가 오늘이 아니면, 오늘 일봉 데이터 생성
+                        price_df = self.kiwoom.get_price_data(code)
+                        insert_df_to_db(self.strategy_name, code, price_df)                         # 일봉 데이터를 DB에 저장
+
+
+                else:                                                                               # 사례 ➌~➍: 장 시작 전이거나 장 중인 경우 데이터베이스에 저장된 데이터 조회
+                    sql = "select * from `{}`".format(code)
+                    cur = execute_sql(self.strategy_name, sql)
+                    cols = [column[0] for column in cur.description]
+                    price_df = pd.DataFrame.from_records(data=cur.fetchall(), columns=cols)         # 데이터베이스에서 조회한 데이터를 DataFrame으로 변환해서 저장
+                    price_df = price_df.set_index('index')
+                    self.universe[code]['price_df'] = price_df                                      # 가격 데이터를 self.universe에서 접근할 수 있도록 저장                                                                                # 사례 ➋~➍: 일봉 데이터가 있는 경우
 
 
     def run(self):
@@ -112,7 +132,7 @@ class RSIStrategy(QThread):
             except Exception as e:
                 print(traceback.format_exc())
 
-    def check_sell_signal(self, code):
-        universe_item = self.universe[code]
-        print(universe_item)
-        print(universe_item.keys())
+        def check_sell_signal(self, code):
+            universe_item = self.universe[code]
+            print(universe_item)
+            print(universe_item.keys())
