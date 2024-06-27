@@ -60,7 +60,7 @@ class Kiwoom(QAxWidget):
     def get_account_number(self, tag="ACCNO"):
         account_list = self.dynamicCall("GetLoginInfo(QString)", tag)                               # 키움 API : GetLoginInfo
         account_number = account_list.split(';')[0]
-        print(account_number)
+        print("계좌번호: " , account_number)
         return account_number
 
 
