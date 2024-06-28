@@ -32,15 +32,17 @@ class RSIStrategy(QThread):
 
     def check_and_get_universe(self):
 
-        # 유니버스 테이블 존재 확인
+        # 유니버스 테이블 확인 후 없다면
+        # 1. dataFrame(종목별) 가져옴
+        # 2.
         if not check_table_exist(self.strategy_name, 'universe'):
             universe_list = get_universe()
             print(universe_list)
 
             universe = {}
             now = datetime.now().strftime("%Y%m%d")                                                 # 오늘 날짜를 20210101 형태로 지정
-            kospi_code_list = self.kiwoom.get_code_list_by_market("0")                              # KOSPI(0)에 상장된 모든 종목 코드를 가져와 kospi_code_list에 저장
-            kosdaq_code_list = self.kiwoom.get_code_list_by_market("10")                            # KOSDAQ(10)에 상장된 모든 종목 코드를 가져와 kosdaq_code_list에 저장
+            kospi_code_list = self.kiwoom.get_code_list_by_market("0")                              # API로부터 KOSPI(0)/KOSDAQ(10)에 상장된 모든 종목 코드를 가져와 kospi_code_list에 저장
+            kosdaq_code_list = self.kiwoom.get_code_list_by_market("10")
 
             for code in kospi_code_list + kosdaq_code_list:                                         # 모든 종목 코드를 바탕으로 반복문 수행
                 code_name = self.kiwoom.get_master_code_name(code)                                  # 종목 코드에서 종목명을 얻어 옴
@@ -58,7 +60,7 @@ class RSIStrategy(QThread):
 
 
 
-        # select * from universe 쿼리 결과를 self.universe 딕셔너리에 저장
+        # select * from universe 쿼리 결과를 (리스트)universe_list에 저장
         # 예) universe_list = {'000270':{'code_name':'기아'}}
         sql = "select * from universe"
         cur = execute_sql(self.strategy_name, sql)
@@ -85,7 +87,7 @@ class RSIStrategy(QThread):
             else:                                                                                   # 장 종료가 아니거나, 데이터가 있다면
 
                 if check_transaction_closed():                                                      # 사례 ➋: 장이 종료되었다면
-                    sql = "select max(`{}`) from `{}`".format('index', code)                 # 저장된 데이터의 가장 최근 일자 조회
+                    sql = "select max(`{}`) from `{}`".format('index', code)                        # 저장된 데이터의 가장 최근 일자 조회
                     cur = execute_sql(self.strategy_name, sql)
                     last_date = cur.fetchone()                                                      # 일봉 데이터를 저장한 가장 최근 일자 조회
                     now = datetime.now().strftime("%Y%m%d")                                         # 오늘 날짜 지정

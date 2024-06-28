@@ -95,6 +95,9 @@ def crawler(code, page):
     df = pd.DataFrame(data=number_data, columns=header_data)                                        # 한 페이지에서 얻은 정보를 모아 데이터프레임으로 만들어 반환
     return df
 
+# 1. 네이버 증권에서 크롤링
+# 2. 조건 필터링 후 200개 추출해서 엑셀파일로 저장
+# 3. dataFrame(종목명) 반환
 def get_universe():
     df = execute_crawler()                                                                          # 크롤링 결과를 얻어 옴
     mapping = {',': '', 'N/A': '0'}
@@ -120,7 +123,7 @@ def get_universe():
 
     filename = f'universe{formattedDate}.xlsx'
     df.to_excel(filename)                                                                           # 유니버스 생성 결과를 엑셀로 출력
-    return df ['종목명'].tolist()
+    return df ['종목명'].tolist()                                                                    # dataFrame 내용 중 '종목명' 컬럼을 추출해서 반환
 
 
 if __name__ == "__main__":
