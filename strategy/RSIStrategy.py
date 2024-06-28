@@ -19,8 +19,8 @@ class RSIStrategy(QThread):
 
     def init_strategy(self):                                                                        # 전략 초기화 기능을 수행하는 함수
         try:
-            self.check_and_get_universe()                                                           # 유니버스 생성
-            self.check_and_get_price_data()                                                         # 유니버스 딕셔너리 구성
+            self.check_and_get_universe()                                                           # 네이버 크롤링 > 유니버스 생성(종목명) > API와 조합 : 유니버스 내용 추가 생성(종목코드,종목명)
+            self.check_and_get_price_data()                                                         # (테이블)유니버스에 최신 일봉테이터 처리
             self.kiwoom.get_order()                                                                 # 주문 정보 확인
             self.kiwoom.get_balance()                                                               # 잔고 확인
             self.deposit = self.kiwoom.get_deposit()                                                # 예수금 확인
@@ -32,22 +32,29 @@ class RSIStrategy(QThread):
 
     def check_and_get_universe(self):
 
-        # 유니버스 테이블 확인 후 없다면
-        # 1. dataFrame(종목별) 가져옴
-        # 2.
+        # DB에 (테이블)universe 내용 검사
+        #   1. 크롤링 목록에서 종목명을 이용해서 종목코드 추출
+        #   2. 종목코드, 종목명, 추출일 > (테이블)universe 생성
         if not check_table_exist(self.strategy_name, 'universe'):
-            universe_list = get_universe()
+
+            # 네이버 크롤링 결과를 dataFrame('종목명')으로 가지고 옴 > list에 저장 (200개)
+            # 크롤링 목록에는 종목코드가 없음
+            universe_list = get_universe()                                                          # get_universe() <== 네이버 증권 크롤링 결과에 필터 후 200개 선정 > 리스트 반환
             print(universe_list)
 
             universe = {}
             now = datetime.now().strftime("%Y%m%d")                                                 # 오늘 날짜를 20210101 형태로 지정
-            kospi_code_list = self.kiwoom.get_code_list_by_market("0")                              # API로부터 KOSPI(0)/KOSDAQ(10)에 상장된 모든 종목 코드를 가져와 kospi_code_list에 저장
+
+            # API로부터 KOSPI(0)/KOSDAQ(10)에 상장된 모든 종목 코드를 가져와 kospi_code_list에 저장
+            kospi_code_list = self.kiwoom.get_code_list_by_market("0")
             kosdaq_code_list = self.kiwoom.get_code_list_by_market("10")
 
-            for code in kospi_code_list + kosdaq_code_list:                                         # 모든 종목 코드를 바탕으로 반복문 수행
-                code_name = self.kiwoom.get_master_code_name(code)                                  # 종목 코드에서 종목명을 얻어 옴
+            # 모든 종목 코드를 대상으로 처리
+            # 유니버스 크롤링 목록의 종목명을 이용해서 종목코드 추출
+            for code in kospi_code_list + kosdaq_code_list:
+                code_name = self.kiwoom.get_master_code_name(code)                                  # 모든 상장사의 종목 코드에서 종목명을 얻어 옴
 
-                if code_name in universe_list:                                                      # 얻어 온 종목명이 유니버스에 포함되어 있다면 딕셔너리에 추가
+                if code_name in universe_list:                                                      # 해당 상장자의 종목명이 유니버스에 포함되어 있다면 (딕셔너리)universe에 추가
                     universe[code] = code_name
 
                 universe_df = pd.DataFrame({                                                        # 코드, 종목명, 생성 일자를 열로 가지는 DataFrame 생성
@@ -56,20 +63,21 @@ class RSIStrategy(QThread):
                     'created_at': [now] * len(universe.keys())
                 })
 
-                insert_df_to_db(self.strategy_name, 'universe', universe_df)            # universe라는 테이블 이름으로 Dataframe을 DB에 저장
+                insert_df_to_db(self.strategy_name, 'universe', universe_df)            # DB에 (테이블)universe에 Dataframe 저장
 
 
 
-        # select * from universe 쿼리 결과를 (리스트)universe_list에 저장
-        # 예) universe_list = {'000270':{'code_name':'기아'}}
+        # (테이블)universe에서 레코드셋 생성 후 (리스트)universe_list 저장
+        # universe_list = {'000270':{'code_name':'기아'}}
         sql = "select * from universe"
         cur = execute_sql(self.strategy_name, sql)
         universe_list = cur.fetchall()
 
+
         # self.universe[code] = {(0,'000270','기아','20240626')}
         for item in universe_list:
             idx, code, code_name, created_at = item
-            self.universe[code] = {
+            self.universe[code] = {                                                                 # self.universe = {'000270':{'code_name':'기아'}}
                 'code_name': code_name
             }
         print(self.universe)
@@ -84,10 +92,10 @@ class RSIStrategy(QThread):
                 price_df = self.kiwoom.get_price_data(code)                                         # 종목코드별 TR 요청(주식일봉차트조회요청)
                 insert_df_to_db(self.strategy_name, code, price_df)                                 # 코드를 테이블 이름으로 해서 데이터베이스에 저장
 
-            else:                                                                                   # 장 종료가 아니거나, 데이터가 있다면
+            else:
 
                 if check_transaction_closed():                                                      # 사례 ➋: 장이 종료되었다면
-                    sql = "select max(`{}`) from `{}`".format('index', code)                        # 저장된 데이터의 가장 최근 일자 조회
+                    sql = "select max(`{}`) from `{}`".format('index', code)                 # 저장된 데이터의 가장 최근 일자 조회
                     cur = execute_sql(self.strategy_name, sql)
                     last_date = cur.fetchone()                                                      # 일봉 데이터를 저장한 가장 최근 일자 조회
                     now = datetime.now().strftime("%Y%m%d")                                         # 오늘 날짜 지정
@@ -97,13 +105,24 @@ class RSIStrategy(QThread):
                         insert_df_to_db(self.strategy_name, code, price_df)                         # 종목코드별 일봉 데이터를 DB에 저장
 
 
-                else:                                                                               # 사례 ➌~➍: 장 시작 전이거나 장 중인 경우 데이터베이스에 저장된 데이터 조회
+                else:                                                                               # 사례 ➌~➍: 장 시작 전이거나 장 중인 경우 (테이블)종별코드에서 RS 반환
                     sql = "select * from `{}`".format(code)
                     cur = execute_sql(self.strategy_name, sql)
-                    cols = [column[0] for column in cur.description]
+                    cols = [column[0] for column in cur.description]                                # cur.description의 행렬에서 0번째 컬럼들 추출
                     price_df = pd.DataFrame.from_records(data=cur.fetchall(), columns=cols)         # 데이터베이스에서 조회한 데이터를 DataFrame으로 변환해서 저장
                     price_df = price_df.set_index('index')
                     self.universe[code]['price_df'] = price_df                                      # 가격 데이터를 self.universe에서 접근할 수 있도록 저장                                                                                # 사례 ➋~➍: 일봉 데이터가 있는 경우
+
+
+                                                                                                    # 쿼리 실행 후 cur.description 행렬
+                                                                                                    #[
+                                                                                                    #    ('index', None, None, None, None, None, None),
+                                                                                                    #    ('open', None, None, None, None, None, None),
+                                                                                                    #    ('high', None, None, None, None, None, None),
+                                                                                                    #    ('low', None, None, None, None, None, None),
+                                                                                                    #    ('close', None, None, None, None, None, None),
+                                                                                                    #    ('volume', None, None, None, None, None, None)
+                                                                                                    #]
 
 
     def run(self):

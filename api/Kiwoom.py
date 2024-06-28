@@ -83,8 +83,8 @@ class Kiwoom(QAxWidget):
         self.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)
         self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10081_req", "opt10081", 0, "0001")   # 서버로 TR 요청 (TR요청 때는 인자 4개), TR 반환때는 (OnReceiveTrData)는 인자 9개
+        self.tr_event_loop.exec_()                                                                  # loop 시작  >> _on_receive_tr_data에서 self.tr_event_loop.exit() loop 종료
 
-        self.tr_event_loop.exec_()
         ohlcv = self.tr_data
 
 
@@ -110,8 +110,6 @@ class Kiwoom(QAxWidget):
         # 수신된 TR 정보 출력
         print("[Kiwoom TR처리] _on_receive_tr_data is called {} / {} / {}".format(screen_no, rqname, trcode))
         tr_data_cnt = self.dynamicCall("GetRepeatCnt(QString, QString)", trcode, rqname)            # GetRepeatCnt : 수신된 TR의 Row Count
-        # print("[Kiwoom] tr_data_cnt: %s " % tr_data_cnt)
-        # print("[Kiwoom] OnReceiveTrData.next : %s" % next)
 
         # TR 다음 데이터가 추가로 있는지 검사
         if next == '2':
