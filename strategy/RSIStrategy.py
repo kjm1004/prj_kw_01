@@ -151,7 +151,7 @@ class RSIStrategy(QThread):
                             self.order_sell(code)                                                   # 매도 대상이면 매도 주문 접수
 
                     else:
-                    self.check_buy_signal_and_order(code)                                           # 접수한 종목 및 보유 종목이 아니라면 매수 대상인지 확인 후 주문 접수
+                        self.check_buy_signal_and_order(code)                                           # 접수한 종목 및 보유 종목이 아니라면 매수 대상인지 확인 후 주문 접수
 
             except Exception as e:
                 print(traceback.format_exc())
@@ -257,7 +257,7 @@ class RSIStrategy(QThread):
         ma20 = df[-1:]['ma20'].values[0]
         ma60 = df[-1:]['ma60'].values[0]
 
-        idx = df.index.get_loc(datetime.now().strftime('%Y%m%d')) – 2                               # 2 거래일 전 날짜(index)를 구함
+        idx = df.index.get_loc(datetime.now().strftime('%Y%m%d'))- 2                                # 2 거래일 전 날짜(index)를 구함
         close_2days_ago = df.iloc[idx]['close']                                                     # 위 index부터 2 거래일 전 종가를 얻어 옴
         price_diff = (close - close_2days_ago) / close_2days_ago * 100                              # 2 거래일 전 종가와 현재가를 비교
 
@@ -291,7 +291,7 @@ class RSIStrategy(QThread):
         balance_count = len(self.kiwoom.balance)
         for code in self.kiwoom.order.keys():  # kiwoom balance에 존재하는 종목이 매도 주문 접수되었다면 보유 종목에서 제외시킴
             if code in self.kiwoom.balance and self.kiwoom.order[code]['주문구분'] == "매도" and self.kiwoom.order[code]['미체결수량'] == 0:
-            balance_count = balance_count - 1
+                balance_count = balance_count - 1
         return balance_count
 
     def get_buy_order_count(self):  # 매수 주문 종목 수를 계산하는 함수
