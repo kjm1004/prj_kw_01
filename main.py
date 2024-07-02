@@ -12,8 +12,8 @@ from api.Kiwoom import *
 # app.exec_()     # main event loop     <== 루프 실행
 
 app = QApplication(sys.argv)
+kiwoom = Kiwoom()
 
-# kiwoom = Kiwoom()
 # df = kiwoom.get_price_data("005930")
 # print(df)
 
@@ -23,9 +23,9 @@ app = QApplication(sys.argv)
 # order_result = kiwoom.send_order('send_buy_order', '1001', 1, '007700', 100, 15090, '00')
 # print("주문결과 : %s" % order_result)
 
-# 주식 체결 결과 보기
-# orders = kiwoom.get_order()
-# print(orders)
+#주식 체결 결과 보기
+orders = kiwoom.get_order()
+print(orders)
 
 # 주식 체결 잔고 현황 보기
 # position = kiwoom.get_balance()
@@ -37,9 +37,7 @@ app = QApplication(sys.argv)
 # codes = '005930;007700;000660;'
 # kiwoom.set_real_reg("1000", codes, fids, "0")
 
-rsi_strategy = RSIStrategy()
-rsi_strategy.start()
+# rsi_strategy = RSIStrategy()
+# rsi_strategy.start()
 
 app.exec_()
-
-

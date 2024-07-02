@@ -118,8 +118,8 @@ def get_universe():
     df = df.sort_values(by=['RANK_VALUE'])                                                          # RANK_VALUE를 기준으로 정렬
     df.reset_index(inplace=True, drop=True)                                                         # 필터링한 데이터프레임의 index 번호를 새로 매김
 
-    # 상위 200개만 추출
-    df = df.loc[:199]
+    # 상위 200개만 추출  ==> 10개만 추출
+    df = df.loc[:9]
 
     filename = f'universe{formattedDate}.xlsx'
     df.to_excel(filename)                                                                           # 유니버스 생성 결과를 엑셀로 출력

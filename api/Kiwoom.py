@@ -149,8 +149,8 @@ class Kiwoom(QAxWidget):
         # TR: 예수금 조회 (opw00001)
         elif rqname == "opw00001_req":
             deposit = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, 0, "주문가능금액")
+            print("예수금 : ", self.tr_data)
             self.tr_data = int(deposit)
-            print(self.tr_data)
 
 
         # 주문 정보 확인 (opt10075)
@@ -167,6 +167,7 @@ class Kiwoom(QAxWidget):
                 left_quantity = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "미체결수량")
                 executed_quantity = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "체결량")
                 ordered_at = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "시간")
+
                 fee = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "당일매매수수료")
                 tax = self.dynamicCall("GetCommData(QString, QString, int, QString", trcode, rqname, i, "당일매매세금")
 
@@ -308,13 +309,16 @@ class Kiwoom(QAxWidget):
 
 
     # 주문 정보 확인
+    # OPT10075, ‘미체결 요청’
+    # TR 이름이 미체결 요청이지만, 체결 여부와 상관없이 당일 접수했던 전체 주문을 확인
     def get_order(self):
-        self.dynamicCall("SetInputValue(QString, QString)", "계좌번호", self.account_number)
-        self.dynamicCall("SetInputValue(QString, QString)", "전체종목구분", "0")
+        self.dynamicCall("SetInputValue(QString, QString)", "계좌번호", self.account_number)         # 전문 조회할 계좌번호
+        self.dynamicCall("SetInputValue(QString, QString)", "전체종목구분", "0")                      # 0: 전체, 1: 종목
         self.dynamicCall("SetInputValue(QString, QString)", "체결구분", "0")                          # 0:전체, 1:미체결, 2:체결
         self.dynamicCall("SetInputValue(QString, QString)", "매매구분", "0")                          # 0:전체, 1:매도, 2:매수
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10075_req", "opt10075", 0, "0002")
 
+        # CommRqData를 요청할 때 (TR)opt10075를 이용하기 때문에, 서버로부터 OnReceiveMsg가 반환 ==> (슬롯)_on_receive_msg에서 접수
         self.tr_event_loop.exec_()
         return self.tr_data
 

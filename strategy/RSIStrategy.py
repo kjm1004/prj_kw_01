@@ -10,22 +10,23 @@ class RSIStrategy(QThread):
         QThread.__init__(self)
         self.strategy_name = "RSIStrategy"
         self.kiwoom = Kiwoom()
-        self.universe ={}
+        self.universe = {}
 
         self.deposit = 0                                                                            # 계좌 예수금
-        self.is_init_success = False                                                                # 초기화 함수 성공 여부 확인 변수
+        self.is_init_success = False                                                                # 초기화함수 성공여부 확인변수
 
         self.init_strategy()
 
-    def init_strategy(self):                                                                        # 전략 초기화 기능을 수행하는 함수
+    # 전략 초기화 기능을 수행하는 함수
+    def init_strategy(self):
         try:
             self.check_and_get_universe()                                                           # 네이버 크롤링 > 유니버스 생성(종목명) > API와 조합 : 유니버스 내용 추가 생성(종목코드,종목명)
-            self.check_and_get_price_data()                                                         # (테이블)유니버스에 최신 일봉테이터 처리
+            self.check_and_get_price_data()                                                         # (테이블)유니버스에 최신 일봉테이터 처리. DB에 저장되어 있는 universe(종목)에 대해서 종목별 테이블 생성
             self.kiwoom.get_order()                                                                 # 주문 정보 확인
             self.kiwoom.get_balance()                                                               # 잔고 확인
             self.deposit = self.kiwoom.get_deposit()                                                # 예수금 확인
             self.set_universe_real_time()                                                           # 유니버스 실시간 체결 정보 등록
-            self.is_init_success = true
+            self.is_init_success = True
 
         except Exception as e:
             print(traceback.format_exc())
@@ -40,7 +41,8 @@ class RSIStrategy(QThread):
             # 네이버 크롤링 결과를 dataFrame('종목명')으로 가지고 옴 > list에 저장 (200개)
             # 크롤링 목록에는 종목코드가 없음
             universe_list = get_universe()                                                          # get_universe() <== 네이버 증권 크롤링 결과에 필터 후 200개 선정 > 리스트 반환
-            print(universe_list)
+                                                                                                    # universe_list에는 종목명만 있음
+            print("universe_list 출력 : ", universe_list)
 
             universe = {}
             now = datetime.now().strftime("%Y%m%d")                                                 # 오늘 날짜를 20210101 형태로 지정
@@ -63,7 +65,7 @@ class RSIStrategy(QThread):
                     'created_at': [now] * len(universe.keys())
                 })
 
-                insert_df_to_db(self.strategy_name, 'universe', universe_df)            # DB에 (테이블)universe에 Dataframe 저장
+                insert_df_to_db(self.strategy_name, 'universe', universe_df)            # (테이블)universe에 Dataframe  ==> DB
 
 
 
@@ -71,16 +73,17 @@ class RSIStrategy(QThread):
         # universe_list = {'000270':{'code_name':'기아'}}
         sql = "select * from universe"
         cur = execute_sql(self.strategy_name, sql)
-        universe_list = cur.fetchall()
+        universe_list = cur.fetchall()                                                              # rs.move()
 
 
-        # self.universe[code] = {(0,'000270','기아','20240626')}
+        # universe_list 데이터를 universe 딕셔너리에 저장
+        # [(0,'000270','기아','20240626')] ==> {'000270':{'code_name':'기아'}}
         for item in universe_list:
             idx, code, code_name, created_at = item
-            self.universe[code] = {                                                                 # self.universe = {'000270':{'code_name':'기아'}}
+            self.universe[code] = {
                 'code_name': code_name
             }
-        print(self.universe)
+        print("universe 출력 : " , self.universe)
 
 
     # (테이블)universe 종목코드별로 일봉데이터 확인 후 종목코드별 테이블 생성
@@ -151,7 +154,7 @@ class RSIStrategy(QThread):
                             self.order_sell(code)                                                   # 매도 대상이면 매도 주문 접수
 
                     else:
-                        self.check_buy_signal_and_order(code)                                           # 접수한 종목 및 보유 종목이 아니라면 매수 대상인지 확인 후 주문 접수
+                        self.check_buy_signal_and_order(code)                                       # 접수한 종목 및 보유 종목이 아니라면 매수 대상인지 확인 후 주문 접수
 
             except Exception as e:
                 print(traceback.format_exc())
@@ -161,14 +164,18 @@ class RSIStrategy(QThread):
             print(universe_item)
             print(universe_item.keys())
 
-    def set_universe_real_time(self):                                                               # 유니버스의 실시간 체결 정보 수신을 등록하는 함수
-        fids = get_fid("체결시간")                                                                       # 임의의 fid를 하나 전달하는 코드(아무 값의 fid라도 하나 이상 전달해야 정보를 얻어 올 수 있음)
-        # self.kiwoom.set_real_reg("1000", "", get_fid("장운영구분"), "0")                                   # 장 운영 구분을 확인하는 데 사용할 코드
 
-        codes = self.universe.keys()                                                                # universe 딕셔너리의 키 값들은 종목 코드들을 의미
-        codes = ";".join(map(str, codes))                                                           # 종목 코드들을 ‘;’을 기준으로 연결
+    # 유니버스 실시간 체결 정보 수신
+    # 유니버스에 속하는 모든 종목의 실시간 체결정보를 요청 -> 이것으로 초기화 함수에서 수행할 모든 단계를 마칩니다.
+    def set_universe_real_time(self):
+        fids = get_fid("체결시간")                                                                   # 임의의 fid를 하나 전달하는 코드(아무 값의 fid라도 하나 이상 전달해야 정보를 얻어 올 수 있음)
+        #self.kiwoom.set_real_reg("1000", "", get_fid("장운영구분"), "0")                           # 장 운영 구분을 확인하는 데 사용할 코드
 
-        self.kiwoom.set_real_reg("9999", codes, fids, "0")                                              # 화면 번호 9999에 종목 코드들의 실시간 체결 정보 수신 요청
+        codes = self.universe.keys()                                                                # 종목코드
+        codes = ";".join(map(str, codes))                                                           # 종목코드들을 ;로 연결
+
+        self.kiwoom.set_real_reg("9999", codes, fids, "0")                # 종목 코드들 실시간 체결 정보수신 요청 (화면번호 : 9999)
+
 
     def check_sell_signal(self, code):
         universe_item = self.universe[code]
