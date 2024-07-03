@@ -12,7 +12,7 @@ from api.Kiwoom import *
 # app.exec_()     # main event loop     <== 루프 실행
 
 app = QApplication(sys.argv)
-kiwoom = Kiwoom()
+#kiwoom = Kiwoom()
 
 # df = kiwoom.get_price_data("005930")
 # print(df)
@@ -24,8 +24,8 @@ kiwoom = Kiwoom()
 # print("주문결과 : %s" % order_result)
 
 #주식 체결 결과 보기
-orders = kiwoom.get_order()
-print(orders)
+# orders = kiwoom.get_order()
+# print(orders)
 
 # 주식 체결 잔고 현황 보기
 # position = kiwoom.get_balance()
@@ -37,7 +37,9 @@ print(orders)
 # codes = '005930;007700;000660;'
 # kiwoom.set_real_reg("1000", codes, fids, "0")
 
-# rsi_strategy = RSIStrategy()
-# rsi_strategy.start()
+
+# 전략 주식 매매
+rsi_strategy = RSIStrategy()                                                                        # RSIStrategy(QThread): <== QThread 클래스 호출
+rsi_strategy.start()                                                                                # start() : QThread를 상속받은 쓰레드 시작. start()가 호출되면 Qthread.run() 메서드 호출
 
 app.exec_()

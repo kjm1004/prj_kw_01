@@ -42,9 +42,9 @@ class Kiwoom(QAxWidget):
     # 로그인 슬롯 발생
     def _login_slot(self, err_code):
         if err_code == 0:
-            print("connected")
+            print("로그인 슬롯 : connected")
         else:
-            print("not connected")
+            print("로그인 슬롯 : not connected")
 
         self.login_event_loop.exit()
 
@@ -108,8 +108,9 @@ class Kiwoom(QAxWidget):
     # OnReceiveTrData 시그널에 의한 슬롯 처리
     def _on_receive_tr_data(self, screen_no, rqname, trcode, record_name, next, unused1, unused2,unused3, unused4):
         # 수신된 TR 정보 출력
-        print("[Kiwoom TR처리] _on_receive_tr_data is called {} / {} / {}".format(screen_no, rqname, trcode))
+        print("[TR수신] _on_receive_tr_data is called {} / {} / {}".format(screen_no, rqname, trcode))
         tr_data_cnt = self.dynamicCall("GetRepeatCnt(QString, QString)", trcode, rqname)            # GetRepeatCnt : 수신된 TR의 Row Count
+        print("_on_receive_tr_data > tr_data_cnt : ", tr_data_cnt)
 
         # TR 다음 데이터가 추가로 있는지 검사
         if next == '2':
@@ -205,6 +206,7 @@ class Kiwoom(QAxWidget):
                     '당일매매세금': tax
                 }
 
+            print("(TR)opt10075 : 주문 정보 확인 ==> 슬롯 처리")
             self.tr_data = self.order
 
 
@@ -242,6 +244,7 @@ class Kiwoom(QAxWidget):
                 self.tr_data = self.balance
 
         self.tr_event_loop.exit()                                                                   # TR 슬롯 호출지점 복귀 (멀티행일 경우 재실행)
+        print("(TR)opt00018 : 잔고 정보 확인 ==> 슬롯 처리")
         time.sleep(0.5)
 
 
@@ -268,12 +271,12 @@ class Kiwoom(QAxWidget):
 
     # 주문 확인 메세지
     def _on_receive_msg(self, screen_no, rqname, trcode, msg):
-        print("[Kiwoom] _on_receive_msg is called {} / {} / {} / {}".format(screen_no, rqname, trcode, msg))
+        print("[주문확인메세지] _on_receive_msg is called {} / {} / {} / {}".format(screen_no, rqname, trcode, msg))
 
 
     # 체결 및 잔고
     def _on_chejan_slot(self, s_gubun, n_item_cnt, s_fid_list):
-        print("[Kiwoom] _on_chejan_slot is called {} / {} / {}".format(s_gubun, n_item_cnt, s_fid_list))
+        print("[체결및잔고] _on_chejan_slot is called {} / {} / {}".format(s_gubun, n_item_cnt, s_fid_list))
 
         for fid in s_fid_list.split(";"):                                                           # fid 리스트를 ‘;’ 기준으로 분리
             if fid in FID_CODES:                                                                    # FID_CODES <== const.py에 딕셔너리로 정의되어 있음. fid가 FID_CODES에 있는지 검사
@@ -308,6 +311,7 @@ class Kiwoom(QAxWidget):
 
 
 
+
     # 주문 정보 확인
     # OPT10075, ‘미체결 요청’
     # TR 이름이 미체결 요청이지만, 체결 여부와 상관없이 당일 접수했던 전체 주문을 확인
@@ -316,9 +320,10 @@ class Kiwoom(QAxWidget):
         self.dynamicCall("SetInputValue(QString, QString)", "전체종목구분", "0")                      # 0: 전체, 1: 종목
         self.dynamicCall("SetInputValue(QString, QString)", "체결구분", "0")                          # 0:전체, 1:미체결, 2:체결
         self.dynamicCall("SetInputValue(QString, QString)", "매매구분", "0")                          # 0:전체, 1:매도, 2:매수
-        self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10075_req", "opt10075", 0, "0002")
+        self.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10075_req", "opt10075", 0, "0002")       # 이벤트 루핑 시작 > 시그널 대기 > 시그널 착신 > 슬롯 동작
 
         # CommRqData를 요청할 때 (TR)opt10075를 이용하기 때문에, 서버로부터 OnReceiveMsg가 반환 ==> (슬롯)_on_receive_msg에서 접수
+        print("Kiwoom.py - ger_order :(TR)opt10075 미체결 요청 => CommRqData 요청")
         self.tr_event_loop.exec_()
         return self.tr_data
 
@@ -330,6 +335,9 @@ class Kiwoom(QAxWidget):
         self.dynamicCall("SetInputValue(QString, QString)", "비밀번호입력매체구분", "00")
         self.dynamicCall("SetInputValue(QString, QString)", "조회구분", "1")
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "opw00018_req", "opw00018", 0, "0002")
+
+        print("Kiwoom.py - get_balance :(TR)opt00018 미체결 요청 => CommRqData 요청")
+        # CommRqData를 요청할 때 (TR)opw00018를 이용하기 때문에, 서버로부터 OnReceiveMsg가 반환 ==> (슬롯)_on_receive_msg에서 접수
 
         self.tr_event_loop.exec_()
         return self.tr_data

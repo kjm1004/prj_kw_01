@@ -22,10 +22,10 @@ class RSIStrategy(QThread):
         try:
             self.check_and_get_universe()                                                           # 네이버 크롤링 > 유니버스 생성(종목명) > API와 조합 : 유니버스 내용 추가 생성(종목코드,종목명)
             self.check_and_get_price_data()                                                         # (테이블)유니버스에 최신 일봉테이터 처리. DB에 저장되어 있는 universe(종목)에 대해서 종목별 테이블 생성
-            self.kiwoom.get_order()                                                                 # 주문 정보 확인
+            self.kiwoom.get_order()                                                                 # 주문 정보/잔고 확인
             self.kiwoom.get_balance()                                                               # 잔고 확인
             self.deposit = self.kiwoom.get_deposit()                                                # 예수금 확인
-            self.set_universe_real_time()                                                           # 유니버스 실시간 체결 정보 등록
+            #self.set_universe_real_time()                                                           # 유니버스 실시간 체결 정보 등록
             self.is_init_success = True
 
         except Exception as e:
@@ -76,14 +76,15 @@ class RSIStrategy(QThread):
         universe_list = cur.fetchall()                                                              # rs.move()
 
 
-        # universe_list 데이터를 universe 딕셔너리에 저장
-        # [(0,'000270','기아','20240626')] ==> {'000270':{'code_name':'기아'}}
+        # universe_list 데이터를 universe 딕셔너리에 저장 >> universe 딕셔너리 내용 출력
+        # {'000270':{'code_name':'기아'}}
+        # {'007340':{'code_name':'DN오토모티브'}}
         for item in universe_list:
             idx, code, code_name, created_at = item
             self.universe[code] = {
                 'code_name': code_name
             }
-        print("universe 출력 : " , self.universe)
+        print("(DB)universe 출력 : " , self.universe)
 
 
     # (테이블)universe 종목코드별로 일봉데이터 확인 후 종목코드별 테이블 생성
@@ -158,6 +159,7 @@ class RSIStrategy(QThread):
 
             except Exception as e:
                 print(traceback.format_exc())
+
 
         def check_sell_signal(self, code):
             universe_item = self.universe[code]
