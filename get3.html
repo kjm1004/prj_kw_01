@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Print Specific Div from External Page</title>
+    <style>
+        /* 인쇄할 때만 적용되는 스타일 */
+        @media print {
+            body * {
+                visibility: hidden; /* 모든 요소를 숨김 */
+            }
+            .print-area, .print-area * {
+                visibility: visible; /* 특정 div와 그 내부 요소만 보임 */
+            }
+            .print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+            }
+        }
+
+        /* 기본 스타일 */
+        #content {
+            line-height: 1.5; /* 기본 줄 간격 */
+        }
+    </style>
+</head>
+<body>
+    <input type="text" id="urlInput" placeholder="외부 페이지 URL을 입력하세요" value="https://thebook.io/080298/0001/" style="width:400px;">
+    <button onclick="loadNextPage()">다음</button>
+    <button onclick="printCurrentPage()">현재 페이지 인쇄</button>
+    <input type="text" id="pageInput" placeholder="이동할 페이지 번호" style="width:100px;">
+    <button onclick="savePage()">이동</button>
+
+    <!-- 줄 간격 설정 입력창 추가 -->
+    <input type="number" id="lineHeightInput" placeholder="줄 간격 (예: 1.5)" style="width:100px;" step="0.1" onchange="updateLineHeight()">
+    
+    <div id="content"></div>
+
+    <script>
+        let currentPage = 0;
+        const baseUrl = "https://thebook.io/080298/";
+
+        function updateUrlInput() {
+            const url = `${baseUrl}${String(currentPage).padStart(4, '0')}/`;
+            document.getElementById('urlInput').value = url;
+            return url;
+        }
+
+        function loadNextPage() {
+            currentPage++;
+            updateUrlInput();
+            printExternalDiv();
+        }
+
+        function printExternalDiv() {
+            const url = document.getElementById('urlInput').value;
+            if (!url) {
+                alert('URL을 입력하세요.');
+                return;
+            }
+
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const specificDiv = doc.querySelector('.o-page-body-content');
+
+                    if (specificDiv) {
+                        const contentDiv = document.getElementById('content');
+                        contentDiv.innerHTML = specificDiv.outerHTML;
+                        contentDiv.classList.add('print-area');
+                    } else {
+                        alert('외부 페이지에서 특정 div를 찾을 수 없습니다.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching the external page:', error);
+                    alert('외부 페이지를 가져오는 중 오류가 발생했습니다.');
+                });
+        }
+
+        function printCurrentPage() {
+            const contentDiv = document.getElementById('content');
+            if (!contentDiv.innerHTML.trim()) {
+                alert('현재 페이지가 로드되지 않았습니다.');
+                return;
+            }
+
+            contentDiv.classList.add('print-area');
+            window.print();
+            contentDiv.classList.remove('print-area');
+        }
+
+        function savePage() {
+            const pageInput = document.getElementById('pageInput').value;
+            if (!pageInput || isNaN(pageInput)) {
+                alert('유효한 페이지 번호를 입력하세요.');
+                return;
+            }
+
+            currentPage = parseInt(pageInput);
+            updateUrlInput();
+            printExternalDiv();
+        }
+
+        function updateLineHeight() {
+            const lineHeight = document.getElementById('lineHeightInput').value;
+            const contentDiv = document.getElementById('content');
+            if (lineHeight) {
+                contentDiv.style.lineHeight = lineHeight; // 줄 간격 적용
+            }
+        }
+
+        // 초기 URL 업데이트
+        updateUrlInput();
+    </script>
+</body>
+</html>
